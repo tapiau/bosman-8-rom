@@ -134,6 +134,22 @@ Funkcje testowe:
 | FA19 | Licznik timeoutu |
 | F34D | Numer aktualnego napędu |
 
+## Inicjalizacja łącza
+
+Flaga `V24_READY` (F267) jest sprawdzana przy każdej operacji na D/E/F.
+W kodzie ROM **nie ma procedury, która ustawia tę flagę na wartość "gotowe"** —
+wszystkie zapisy do F267 to albo wyczyszczenie (`XOR A` → 0) albo kod błędu (`1Ah`).
+
+Oznacza to, że konfiguracja V.24 i ustawienie flagi `V24_READY != 0` musi być
+wykonywane przez **program ładowany z dysku** (np. `V24INIT.COM` lub podobny),
+który:
+1. Konfiguruje SIO-B (prędkość, parzystość, bity stopu — menu w ROM)
+2. Testuje łącze (funkcje "Test V-24 LO" i "Test V-24 PO")
+3. Ustawia `F267` na wartość niezerową, odblokowując napędy D/E/F
+
+Bez tego programowego odblokowania, napędy D/E/F nie są widoczne —
+próba dostępu kończy się fallbackiem do lokalnej obsługi (`JP Z, .local_disk`).
+
 ## Scenariusz użycia
 
 1. Dwa komputery Bosman-8 połączone kablem RS-232 (SIO-B ↔ SIO-B)

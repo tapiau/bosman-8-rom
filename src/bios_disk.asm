@@ -36,8 +36,11 @@ DISK_DISPATCH:
 	jp c,.local_disk	; 047E  tak → A/B/C — obsługa lokalna
 
 	; --- Napędy D/E/F (3-5): przekierowanie na drugi komputer ---
+	; UWAGA: V24_READY (F267) nie jest ustawiane nigdzie w ROM!
+	; Musi być ustawione przez zewnętrzny program konfiguracyjny (z dysku),
+	; który konfiguruje SIO-B i testuje łącze. Bez tego D/E/F = fallback lokalny.
 	; Sprawdź czy łącze V.24 jest skonfigurowane
-	ld a,(V24_READY)	; 0481  F267 — flaga dostępności
+	ld a,(V24_READY)	; 0481  F267 — flaga dostępności (0=brak, !=0=gotowe)
 	or a			; 0484
 	jp z,.local_disk	; 0485  brak → fallback lokalny
 
