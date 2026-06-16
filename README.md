@@ -28,13 +28,14 @@ rom/
 │   ├── boot_process.md
 │   ├── bdos_functions.md
 │   ├── hardware.md
-│   ├── strings.md
+│   ├── disk_interlink.md
 │   └── emulation.md
 └── src/                                       # podzielony kod asm
     ├── vectors.asm
     ├── boot.asm
     ├── bdos.asm
     ├── bios_console.asm
+    ├── bios_disk.asm
     ├── bios_display.asm
     ├── ram_code.asm
     ├── data_tables.asm

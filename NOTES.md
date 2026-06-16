@@ -105,3 +105,4 @@ Zweryfikowana inicjalizacja 8253 (port 0x87):
 - [x] ~~Proces bootowania~~ — 10 faz, udokumentowany
 - [x] ~~Porty I/O~~ — zmapowane
 - [x] ~~AUTOEXEC~~ — znaleziony string B:AUTOEXEC
+- [x] ~~Komunikacja między komputerami (D/E/F przez SIO-B)~~ → doc/wiki/disk_interlink.md
