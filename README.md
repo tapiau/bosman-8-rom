@@ -12,8 +12,8 @@ CPM-R to zmodyfikowany CP/M 2.2 uruchamiany z EPROM (zamiast z dyskietki).
 | CPU | Zilog Z80A @ 4 MHz |
 | RAM | 512 KB (408 KB RAM-dysk, 60 KB TPA) |
 | ROM | 27256 EPROM (32 KB) |
-| Wyświetlacz | DZM-180 (kontroler przez porty 0x88xx) |
-| Interfejsy | Centronics (drukarka), V.24 (szeregowy), stacje dyskietek |
+| Terminal | Szeregowy przez Z80-SIO kanał A (porty 0x80/0x82) |
+| Interfejsy | Centronics (drukarka), V.24 — SIO-B (drugi komputer), stacje dyskietek (WD1770) |
 | System | CPM-R v2.5 (zmodyfikowany CP/M 2.2) |
 
 ## Struktura projektu
@@ -53,12 +53,14 @@ rom/
 ## Postęp analizy
 
 - [x] Wstępne rozpoznanie (sygnatura, tablice skoków)
-- [x] Podział ROM na 8 plików src/*.asm z adnotacjami
+- [x] Podział ROM na 10 plików src/*.asm z adnotacjami
 - [x] Opis procesu bootowania (10 faz, warianty, komunikaty)
 - [x] Identyfikacja 42 funkcji BDOS (w tym 4 rozszerzenia CPM-R)
-- [x] Identyfikacja rozszerzeń CPM-R (display, RAM-dysk, dodatkowe BIOS)
+- [x] Identyfikacja układów I/O (Z80-SIO, 8253, WD1770, DIP-switch)
+- [x] Terminal UI Framework (DSP_FIELD, DSP_BOX, menu konfiguracyjne)
+- [x] Komunikacja między komputerami (D/E/F przez SIO-B)
+- [x] Konfiguracja V.24 (Program V-24 LO/PO, tablice opcji)
 - [x] Test emulacji (yaze ładuje ROM, potrzeba custom hardware)
-- [x] Dokumentacja portów I/O i sprzętu
 - [x] Ekstrakcja stringów systemowych
 
 ## Główne znaleziska
@@ -66,9 +68,27 @@ rom/
 ### Rozszerzenia CPM-R vs CP/M 2.2
 - **3 dodatkowe wektory** w Page Zero (0x0017, 0x001A, 0x001D)
 - **4 rozszerzone funkcje BDOS** (38-41): stub CP/M 3 + funkcje własne
-- **Obsługa wyświetlacza DZM-180** (atrybuty, pozycjonowanie, porty 0x88xx)
+- **Terminal UI Framework** (0x266C) — silnik menu konfiguracyjnych na terminal przez ESC sekwencje (DSP_FIELD, DSP_BOX, DSP_OPTION). NIE sprzętowy wyświetlacz — Bosman-8 używa terminala szeregowego na SIO-A
 - **RAM-dysk 408 KB** z własnym BIOS (SELMEM, SETBNK)
 - **Polskie znaki** we własnym kodowaniu
 - **AUTOEXEC z B:** (odpowiednik AUTOEXEC.SUB)
 - **NMI handler** (standardowe CP/M ignoruje NMI)
-- **3 tryby wyświetlacza** wybierane klawiszami podczas bootu
+- **3 warianty terminala** wybierane przez DIP-switch (port 0x98) podczas bootu
+
+### Układy I/O
+| Porty | Układ | Funkcja |
+|-------|-------|---------|
+| 0x80-0x83 | Z80-SIO | Szeregowy: kanał A = terminal, kanał B = łącze między komputerami |
+| 0x84-0x87 | 8253 | Timer — generowanie Baud rate i timing dla FDC |
+| 0x88-0x8B | WD 1770 | Kontroler stacji dyskietek |
+| 0x98 | — | DIP-switch konfiguracji sprzętowej + wyjście równoległe |
+
+### Komunikacja między komputerami (D/E/F)
+- Napędy A/B = fizyczne (WD1770), C = RAM-dysk, D/E/F = zdalne przez SIO-B
+- Konfiguracja V.24 przez programy w ROM: "Program. V-24 LO" (0x1979), "Program. V-24 PO" (0x1994)
+- Flaga V24_READY (F267) musi być ustawiona przez program z dysku — serwer NIE jest w ROM
+- Protokół: bloki 128B + checksum, timeout ~65s
+- Szczegóły: `doc/wiki/disk_interlink.md`
+
+### Jak wywołać menu konfiguracyjne
+Menu V.24 i innych urządzeń jest w ROM jako podprogramy, ale **punkt startowy wymaga programu z dysku** (np. SETUP.COM). Dyspozytor menu to `0x18EF` — wywołanie: `LD B, <indeks>; LD IY, <tablica>; CALL 18EFh`. Podprogramy: V.24 LO (0x1979), V.24 PO (0x1994).
