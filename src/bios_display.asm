@@ -1,25 +1,36 @@
 ; =============================================================================
-; bios_display.asm — Obsługa wyświetlacza DZM-180 (ROZSZERZENIE CPM-R)
+; bios_display.asm — Terminal UI Framework (0x266C-0x2921+)
 ; =============================================================================
 ; Punkt wejścia: 0x266C (przez wektor 0x001D w Page Zero)
 ;
-; Obsługuje atrybuty i sterowanie wyświetlaczem przez RAM video (0x8800+).
-; UWAGA: 0x8800+ to memory-mapped video RAM, NIE porty I/O!
-; Porty I/O 0x88-0x8B to WD1770 FDC (inne adresowanie).
-; W standardowym CP/M nie ma odpowiednika — to funkcja specyficzna
-; dla komputera DZM-180/Bosman-8.
+; NIE jest to kontroler wyświetlacza sprzętowego — Bosman-8 używa terminala
+; szeregowego. To FRAMEWORK DO RENDEROWANIA MENU na terminalu przez ESC sekwencje.
+; Używany przez wszystkie programy konfiguracyjne (V.24, drukarka, dyski).
 ;
 ; Parametry:
-;   C = bitmapa operacji do wykonania:
-;     bit 7: set/reset atrybutu
-;     bit 6: dodatkowa flaga
-;     bit 5: operacja na wyświetlaczu
+;   C = bitmapa operacji:
+;     bit 7: DSP_FIELD (set/reset atrybutu pola menu)
+;     bit 6: DSP_FIELD_ALT
+;     bit 5: operacja na ekranie (box/ramka)
 ;     bit 4: pozycjonowanie kursora
-;     bit 3: odczyt/zapis znaku
+;     bit 3: wyjście znaku
 ;     bit 2: przewijanie
-;     bit 1: tryb wyświetlania
+;     bit 1: tryb terminala
 ;     bit 0: czyszczenie ekranu
-;   A, B = dodatkowe parametry zależne od operacji
+;   A, B = dodatkowe parametry
+;   IY = wskaźnik do struktury pola menu:
+;     +0,+1: początek zakresu (x1,y1)
+;     +2,+3: koniec zakresu (x2,y2)
+;     +4,+5: etykieta (wskaźnik do stringu)
+;     +8:     maksymalna wartość
+;
+; Główne podprogramy (używane przez bios_serial.asm i inne):
+;   DSP_FIELD  (0x2697) — renderowanie pola menu z opcjami
+;   DSP_STRING (0x28E2) — wyjście stringu z terminal-safe znakami
+;   DSP_BOX    (0x28EE) — rysowanie ramki/pola
+;   DSP_OPTION (0x291A) — wybór opcji w menu
+;   DSP_CURSOR (0x290C) — przesuwanie kursora
+;   DSP_INIT   (0x2922) — inicjalizacja wyświetlania (używane przy boot)
 ; =============================================================================
 
 	org	0266Ch
@@ -44,89 +55,160 @@ DSP_ATTR:
 	jp nz,.clear_op		; 2691  (→2C07) — czyszczenie
 	jp .default_op		; 2694  (→2BF4) — operacja domyślna
 
-	; --- Operacje na atrybutach ---
+	; --- DSP_FIELD — renderowanie pola menu (bit 7/6 C) ---
 .set_attr:
-	set 7,c			; 2697
-	jr .attr_common		; 2699
+	set 7,c			; 2697  flaga: SET
+	jr .field_common	; 2699
 .res_attr:
-	res 7,c			; 269B
+	res 7,c			; 269B  flaga: RESET
 
-.attr_common:
-	; Ustawienie atrybutów wyświetlacza (kolor, odwrócenie, migotanie)
+.field_common:
+	; Struktura IY: +0=x1, +1=y1, +2=x2, +3=y2, +4+5=label, +8=max
 	push de			; 269D
-	ld e,c			; 269E  zachowaj maskę
-	ld c,a			; 269F
-	ld a,b			; 26A0
-
-	; Obliczanie maski bitowej dla atrybutów
-	; B = numer atrybutu (0-31), C = wartość
-.attr_shift:
-	sub 020h		; 26A1
-	jr c,.attr_done		; 26A3
+	ld e,c			; 269E  E = maska bitowa operacji
+	ld c,a			; 269F  C = wartość
+	ld a,b			; 26A0  A = indeks pola / parametr
+	; Obliczanie maski bitowej dla wartości pola
+	; B zawiera pozycję bitu — przesuwamy maskę
+.shift_loop:
+	sub 020h		; 26A1  odejmij 32
+	jr c,.shift_done	; 26A3
 	rrc c			; 26A5
-	jr .attr_shift		; 26A7
-.attr_done:
-	add a,020h		; 26A9
+	jr .shift_loop		; 26A7
+.shift_done:
+	add a,020h		; 26A9  przywróć
 	and c			; 26AB
-	cp (iy+008h)		; 26AC  porównaj z konfiguracją
-	jr c,.attr_ok		; 26AF
-	xor a			; 26B1  wyczyść
-.attr_ok:
-	; Zapis do portów kontrolera wyświetlacza (0x8802, 0x8803)
-	ld (08802h),a		; 26B2  port atrybutu
-	ld (08803h),a		; 26B5  port kontrolny
+	cp (iy+008h)		; 26AC  porównaj z maksimum
+	jr c,.value_ok		; 26AF
+	xor a			; 26B1  poza zakresem → 0
+.value_ok:
+	; Zapisz atrybut w buforze terminala (0x8802/0x8803)
+	ld (08802h),a		; 26B2  atrybut znaku (inwersja dla zaznaczenia)
+	ld (08803h),a		; 26B5  atrybut pomocniczy
 	ld a,b			; 26B8
-	and 01Fh		; 26B9
-	cpl			; 26BB
+	and 01Fh		; 26B9  tylko 5 bitów
+	cpl			; 26BB  negacja
 	and c			; 26BC
-	ld c,a			; 26BD
+	ld c,a			; 26BD  nowa maska
 	push bc			; 26BE
-	bit 7,e			; 26BF
-	jr z,.attr_exit		; 26C1
-	; Operacja z indeksem (IY)
-	ld l,(iy+000h)		; 26C3
-	ld h,(iy+001h)		; 26C6
-	; (dalsza obróbka z IY+D)
+	bit 7,e			; 26BF  SET czy RESET?
+	jr z,.field_done	; 26C1  RESET → pomiń rysowanie
 
-.attr_exit:
-	; Sprzątanie i powrót
+	; --- Rysowanie pola menu ---
+	; Odczytaj współrzędne z IY
+	ld l,(iy+000h)		; 26C3  x1
+	ld h,(iy+001h)		; 26C6  y1
+	ld e,(iy+002h)		; 26C9  x2
+	ld d,(iy+003h)		; 26CC  y2
+	call DSP_BOX		; 26CF  28EEh — narysuj ramkę pola
+	ld c,03Fh		; 26D2  znak '?'
+	call CHAR_OUT		; 26D4  2C2Fh — wyświetl znak zachęty
+
+	; Wyświetl etykietę pola
+	ld l,(iy+004h)		; 26D7  adres stringu (młodszy)
+	ld h,(iy+005h)		; 26DA  adres stringu (starszy)
+	call DSP_STRING		; 26DD  28E2h — wyświetl etykietę
+
+	; Oblicz szerokość pola (x2 - x1 - 1)
+	ld a,(iy+002h)		; 26E0  x2
+	sub (iy+000h)		; 26E3  x2 - x1
+	dec a			; 26E6  -1
+	ld b,a			; 26E7  B = liczba opcji do wyświetlenia
+
+	; Wyświetl listę opcji (wskaźnik w (HL))
+.option_loop:
+	ld c,(hl)		; 26E8  kod opcji
+	inc hl			; 26E9
+	ld a,c			; 26EA
+	or a			; 26EB  koniec listy?
+	jr z,.field_done	; 26EC
+	push hl			; 26EE
+	ld h,(hl)		; 26EF  adres stringu opcji
+	ld l,000h		; 26F0
+	ld a,h			; 26F2
+	or a			; 26F3
+	jr z,.option_next	; 26F4  pusta opcja
+	push bc			; 26F6
+	call DSP_OPTION_IMPL	; 26F7  2BF4h — wyświetl pojedynczą opcję
+	; (dalszy kod renderowania opcji...)
+
+.field_done:
 	pop bc
 	pop de
 	ret
 
-	; --- Operacje na ekranie ---
+	; --- DSP_BOX: rysowanie ramki/pola na terminalu (0x28EE) ---
 .display_op:
-	; Od 0x28EE
-	ret
+	ld c,028h		; 28EE  '(' — lewy górny róg
+	call BOX_CHAR		; 28F0  290Eh
+	ld c,01Ah		; 28F3  kod poziomej linii
+	call CHAR_OUT		; 28F5  2CD9h
+	push hl			; 28F8
+	push de			; 28F9
+	; Oblicz wymiary: D-H = wysokość, E-L = szerokość
+	ld a,d			; 28FA
+	sub h			; 28FB
+	ld d,a			; 28FC  wysokość
+	ld a,e			; 28FD
+	sub l			; 28FE
+	ld e,a			; 28FF  szerokość
+	ld hl,00000h		; 2900
+	call DSP_INIT		; 2903  2922h — inicjalizacja wyświetlania
+	pop de			; 2906
+	pop hl			; 2907
+	inc h			; 2908
+	inc l			; 2909
+	dec d			; 290A
+	dec e			; 290B
 
-.cursor_op:
-	; Od 0x291A
-	ret
-
-.char_op:
-	; Od 0x2922 — używane też przez boot
-	ret
-
+	; --- DSP_CURSOR: przesuwanie kursora (0x290C) ---
 .scroll_op:
-	; Od 0x290C
+	ld c,04Ch		; 290C  'L' — kod pozycjonowania
+
+BOX_CHAR:
+	call CHAR_OUT2		; 290E  2C2Fh
+	call CUR_SET		; 2911  2BF9h
+	ex de,hl		; 2914
+	call CUR_SET		; 2915  2BF9h
+	ex de,hl		; 2918
+	ret			; 2919
+
+	; --- DSP_OPTION: wybór opcji w menu (0x291A) ---
+.cursor_op:
+	push af			; 291A
+	ld c,029h		; 291B  ')' — znacznik opcji
+	call CHAR_OUT2		; 291D  2C2Fh
+	pop af			; 2920
+	ret			; 2921
+
+	; --- DSP_INIT: inicjalizacja wyświetlania (0x2922) ---
+.char_op:
+	call DSP_DEFAULT	; 2922  2BF4h — operacja domyślna
+	ld c,013h		; 2925  kod inicjalizacji
+	call CHAR_OUT		; 2927  2CD9h
+	call DSP_MODE		; 292A  2981h — ustaw tryb terminala
+	ld c,014h		; 292D
+	call CHAR_OUT		; 292F  2CD9h
+	; (dalsza inicjalizacja terminala...)
 	ret
 
 .mode_op:
-	; Od 0x298D
+	; Od 0x298D — konfiguracja trybu terminala
 	ret
 
 .clear_op:
-	; Od 0x2C07
+	; Od 0x2C07 — czyszczenie ekranu
 	ret
 
 .default_op:
-	; Od 0x2BF4
+	; Od 0x2BF4 — operacja domyślna
 	ret
 
 ; =============================================================================
-; RAM video DZM-180 (memory-mapped, NIE porty I/O)
+; Bufory terminala (memory-mapped, NIE porty I/O)
 ; =============================================================================
 ; Adresy 0x8800+ w przestrzeni adresowej pamięci (nie I/O):
+; Przechowują stan terminala: pozycję kursora, atrybuty, zawartość ekranu.
 ;   0x8800-0x8801: sygnatura 0x55AA (ciepły/zimny start)
 ;   0x8802: rejestr atrybutu znaku
 ;   0x8803: rejestr kontrolny atrybutów
