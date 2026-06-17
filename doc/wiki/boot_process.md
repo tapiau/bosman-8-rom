@@ -17,11 +17,13 @@
 
 ### Faza 4: Inicjalizacja układów I/O (SIO, 8253)
 - **8253 Control Word** (port 0x87): konfiguracja 3 liczników (0x35, 0x76, 0xB6)
-- **Z80-SIO kanał A** (port 0x82 — rejestr rozkazów):
-  - WR3 = 0xE1 (8 bit, auto enable, Rx enable)
-  - WR4 = 0x0C (x16 clock, 1 stop bit, no parity)
+- **Z80-SIO kanał A** (port 0x82 — rejestr rozkazów), tryb SYNCHRONICZNY:
+  - WR3 = 0xE1 (8 bit/znak, sync mode, Rx enable)
+  - WR4 = 0x0C (tryb sync, parametry ramki)
   - WR5 = 0xE8 (DTR, Tx 8 bit, Tx enable)
-- **8253 licznik 1** (port 0x85): wartość 0x0014 = 20 (generator Baud rate)
+- **8253 licznik 1** (port 0x85): wartość 0x0014 = 20
+  - Zegar wejściowy 8253: **2 MHz** (potwierdzone schematem)
+  - 2 000 000 / 20 = **100 000 bod** (synchronicznie, nietypowa prędkość dla terminala)
 - **8253 licznik 0** (port 0x84): wartość 0x9999 (timing dla FDC)
 - **SIO kanał A** (port 0x80): odczyt bufora Rx
 

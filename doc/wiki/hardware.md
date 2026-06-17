@@ -34,14 +34,17 @@ Trzykanałowy licznik/timer, używany do generowania częstotliwości
 | `0x86` | R/W | Licznik 2 |
 | `0x87` | OUT | Słowo kontrolne (rejestr rozkazów) |
 
-Podczas bootu:
+Podczas bootu (zegar wejściowy: 2 MHz):
 ```
 OUT (87h), 0x35  — słowo kontrolne: konfiguracja liczników
 OUT (87h), 0x76  — słowo kontrolne
 OUT (87h), 0xB6  — słowo kontrolne
 OUT (85h), 0x14  — licznik 1: młodszy bajt
 OUT (85h), 0x00  — licznik 1: starszy bajt → wartość = 0x0014 = 20
+→ 2 000 000 / 20 = 100 000 Hz dla SIO
 ```
+
+**Tryb transmisji:** synchroniczny, 100 000 bod (potwierdzone schematem).
 
 ### WD 1770 Floppy Disk Controller — porty 0x88-0x8B
 
@@ -86,6 +89,11 @@ Bity odczytywane podczas bootu (maska `AND 0x28`, `AND 0x40`):
 Bosman-8 **nie ma wbudowanego wyświetlacza**. Komunikacja z użytkownikiem
 odbywa się przez **terminal szeregowy** podłączony do Z80-SIO kanał A
 (port 0x80 = dane, 0x82 = rozkazy/status).
+
+**Tryb transmisji:** **synchroniczny**, 100 000 bod.
+Zegar 8253: 2 MHz / 20 = 100 kHz → SIO clock.
+Jest to nietypowa prędkość — standardowe UART-y nie obsługują tego trybu,
+co sugeruje dedykowany terminal produkcji DZM-180.
 
 Adresy `0x8800+` to **bufory terminala w RAM** (nie RAM video):
 przechowują stan emulacji terminala — pozycję kursora, atrybuty,

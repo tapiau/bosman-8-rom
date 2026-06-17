@@ -80,25 +80,27 @@ WARM_BOOT:
 	out (087h),a		; 027F
 
 	; Z80-SIO kanał A — rejestr rozkazów (port 0x82)
+	; Tryb SYNCHRONICZNY (nie asynchroniczny!), 100 000 bod - do współpracy z terminalem
+	; Zegar 8253: 2 MHz / 20 = 100 kHz → SIO clock
 	; Sekwencja inicjalizacyjna SIO: wpis do rejestrów WR3, WR4, WR5
 	ld a,003h		; 0281  wybór rejestru WR3
 	out (082h),a		; 0283
-	ld a,0E1h		; 0285  WR3: 8 bit, auto enable, Rx enable
+	ld a,0E1h		; 0285  WR3: 8 bit/znak, sync, Rx enable
 	out (082h),a		; 0287
 	ld a,004h		; 0289  wybór rejestru WR4
 	out (082h),a		; 028B
-	ld a,00Ch		; 028D  WR4: x16 clock, 1 stop bit, no parity
+	ld a,00Ch		; 028D  WR4: tryb sync, 2 stop?/flags
 	out (082h),a		; 028F
 	ld a,005h		; 0291  wybór rejestru WR5
 	out (082h),a		; 0293
 	ld a,0E8h		; 0295  WR5: DTR, Tx 8 bit, Tx enable
 	out (082h),a		; 0297
 
-	; 8253 licznik 1 (port 0x85) — generator Baud rate
+	; 8253 licznik 1 (port 0x85) — generator clock dla SIO (2 MHz / 20 = 100 kHz)
 	ld a,014h		; 0299  młodszy bajt = 20
 	out (085h),a		; 029B
 	ld a,000h		; 029D  starszy bajt = 0 → wartość 20
-	out (085h),a		; 029F
+	out (085h),a		; 029F  → 2 000 000 / 20 = 100 000 bod (synchronicznie)
 
 	; SIO kanał A — odczyt danych (port 0x80)
 	in a,(080h)		; 02A1  odczyt bufora Rx

@@ -93,16 +93,18 @@ Zweryfikowana inicjalizacja 8253 (port 0x87):
 - Licznik 1: 0x0014 = 20 (generator Baud rate)
 
 ### Do dalszej analizy
-- [ ] Dokładna analiza funkcji BDOS 40 i 41 (RAM-dysk?)
 - [ ] Rozkodowanie polskich znaków (zweryfikować czy Mazovia czy własne)
-- [ ] Struktury DPB dla różnych formatów dyskietek
-- [ ] Format pliku AUTOEXEC
+- [ ] Pełna analiza BDOS (42 funkcje, 3.4 KB kodu w luce 0x3136-0x3E64)
+- [ ] Pełna analiza CCP (tablica komend, parser, ~1.8 KB)
+- [ ] Szczegółowa analiza archiwizatora/kompresji (0x4E00-0x5200, 0x6000-0x6700)
 - [ ] Emulacja — albo przez modyfikację yaze, albo własny emulator
-- [ ] Identyfikacja producenta/systemu DZM-180 (powiązania z innymi systemami?)
-- [ ] Relacja CPM-R do innych ROM-owych CP/M (np. ZX Spectrum +3, Amstrad CPC)
 - [x] ~~Sygnatura ROM (25 00)~~ — zidentyfikowana
 - [x] ~~Tablice skoków~~ — 10 wektorów głównych + 20 w RAM
 - [x] ~~Proces bootowania~~ — 10 faz, udokumentowany
 - [x] ~~Porty I/O~~ — zmapowane
-- [x] ~~AUTOEXEC~~ — znaleziony string B:AUTOEXEC
+- [x] ~~AUTOEXEC~~ — znaleziony i przeanalizowany (handler 0x4748)
 - [x] ~~Komunikacja między komputerami (D/E/F przez SIO-B)~~ → doc/wiki/disk_interlink.md
+- [x] ~~Funkcje CPM-R BDOS 38-41~~ — FN38/39 to stuby (RET), FN40 ustawia flagę+write, FN41 sprawdza miejsce na dysku
+- [x] ~~Domyślna prędkość V.24~~ — 9600 baud, counter 8253=20, F_CLK≈192kHz
+- [x] ~~Struktura menu konfiguracyjnego V.24~~ — 10 pól (parzystość→bity→dzielnik→DTR→odbiornik→nadajnik→auto→DTR→RTS→prędkość)
+- [x] ~~Mapa luki 0x3136-0x7000~~ — BDOS+CCP+archiwizator+drukarka w tle+RI+RAM-dysk+narzędzia
