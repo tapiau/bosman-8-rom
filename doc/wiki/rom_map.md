@@ -92,7 +92,16 @@ Stan na 2026-06-17. Pokrycie: ~12% szczegółowo, ~88% zmapowane.
 - 0x3038: BDOS_ENTRY — dyspozytor (2 ścieżki)
 - 0x30E0: BDOS_FN_TABLE — tablica 42 funkcji
 
+## 0x247E-0x266C — Program Drukarki (opcje konfiguracji)
+- "Czy zatrzymać drukowanie w tle" (IY=251Fh, NIE/TAK)
+- "Drukarka wyłączona" (IY=2545h)
+- "Czy w tekście używa się `@^~]}{[|\`" — mapowanie polskich znaków (IY=2612h)
+- "Czy zerować bit podczas drukowania" — bit 7 stripping (HIGH bit)
+- "Czy wysyłać znak TAB do drukarki"
+- "Wyjście do systemu" — exit
+
 ## 0x3136-0x3E64 — BDOS: implementacje funkcji (częściowo, ✓ bdos.asm)
+- **Helpery**: BDOS_SETUP(3B33), BDOS_FCB_INIT(3D16), BDOS_CHECK_SPACE(3D1C), BDOS_ALLOC(3A9D), BDOS_DIR_SCAN(3CF0)
 - **Konsola**: C_READ(3134), C_WRITE(3150, TAB→spacje), C_RAWIO(31D2), C_PUNCH(1247), C_LIST(0FFB), C_DIRIO(31D7), C_WRITSTR(3212, $→koniec), C_READSTR(3222), C_STAT(3355), C_VER(335C→2.5)
 - **Dyski**: DRV_RESET(3360), DRV_SELECT(3378)
 - **Pliki**: F_OPEN(344C), F_CLOSE(3490), F_SFIRST(3534), F_SNEXT(3553), F_DELETE(356C), F_READ(3598, 128B sektor), F_WRITE(35D8), F_MAKE(3708), F_RENAME(374E)

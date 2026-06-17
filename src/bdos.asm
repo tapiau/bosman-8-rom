@@ -306,6 +306,50 @@ RAM_P_TERMCPM	equ 0F203h
 ; CPMR_FN40 (0x37F3): ustawia bit 5 flag (F03C), write-through RAM-dysku?
 ; CPMR_FN41 (0x387B): sprawdza miejsce na dysku, porównuje HL z DE
 
+; =============================================================================
+; BDOS — wewnętrzne procedury pomocnicze
+; =============================================================================
+; Te procedury są wywoływane przez wiele funkcji BDOS.
+
+; BDOS_SETUP (0x3B33) — przygotowanie operacji plikowej
+; Ustawia bit 7 flag (F03C), odczytuje numer napędu z FCB,
+; waliduje (max 30/0x1E), zapisuje do F037/F03E.
+; Wejście: F050 = adres FCB
+
+; BDOS_FCB_INIT (0x3D16) — zerowanie bajtu w FCB
+; Wywołuje 0x3D0D (odczyt z FCB+0x0E), zeruje bajt, zwraca.
+
+; BDOS_FCB_OFFSET (0x3CFC) — adres pola w FCB
+; Wejście: DE = offset. Dodaje DE do (F050). Wyjście: HL = FCB+offset.
+; Używane z DE=0x0C (extent?), DE=0x0E, DE=0x0F.
+
+; BDOS_CHECK_SPACE (0x3D1C) — sprawdzenie miejsca na dysku
+; Porównuje DE z wartościami z F048 i F016 (rozmiar dysku?).
+; Używane przez F_WRITE i F_MAKE do sprawdzenia czy jest miejsce.
+; Jeśli DE <= (HL): CY=0 (OK). Jeśli DE > (HL): CY=1 (brak miejsca).
+
+; BDOS_ALLOC (0x3A9D) — alokacja bloku dyskowego
+; Odczytuje allocation vector z FCB+0x21 (F04C/F04D).
+; Manipuluje bitami by znaleźć wolny blok.
+; Używane przez F_WRITE do przydzielania nowych bloków.
+
+; BDOS_DIR_SCAN (0x3CF0) — skanowanie katalogu
+; Ładuje bufor katalogu z F01C, numer napędu z F047,
+; skacze do 0x2BD1 — pętla skanowania wpisów katalogowych.
+; Używane przez F_OPEN, F_SFIRST, F_SNEXT.
+
+; BDOS_DIR_NEXT (0x3D70) — następny wpis w katalogu
+; Używane w pętlach przez F_SFIRST/F_SNEXT/F_DELETE.
+
+; F_DELETE — algorytm (0x356C):
+;   1. BDOS_SETUP (0x3B33)
+;   2. Przygotowanie katalogu (0x3CE7, 0x3942)
+;   3. Pętla: BDOS_DIR_NEXT (0x3D70) — znajdź pasujący wpis
+;   4. BDOS_DIR_SCAN (0x3CF0) — pobierz bufor
+;   5. LD (HL), 0E5h — OZNACZ JAKO USUNIĘTY (0xE5 = CP/M deleted marker)
+;   6. Zapisz katalog (0x3DECh), aktualizuj alokację (0x3B7Bh), flush (0x3957)
+;   7. Powtarzaj aż brak dopasowań
+
 ; Adresy pomocnicze
 FN_3378		equ 03378h	; pomocnicza operacja dyskowa
 

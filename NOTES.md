@@ -107,6 +107,19 @@ Zweryfikowana inicjalizacja 8253 (port 0x87):
 - [x] ~~Funkcje CPM-R BDOS 38-41~~ — FN38/39 to stuby (RET), FN40 ustawia flagę+write, FN41 sprawdza miejsce na dysku
 - [x] ~~Domyślna prędkość V.24~~ — 9600 baud, counter 8253=20, F_CLK≈192kHz
 - [x] ~~Struktura menu konfiguracyjnego V.24~~ — 10 pól (parzystość→bity→dzielnik→DTR→odbiornik→nadajnik→auto→DTR→RTS→prędkość)
+## 2026-06-17 — Buforowany PUNCH i LIST
+
+### PUNCH z buforowaniem (0x10CF)
+- Bufor kołowy 0x180 bajtów w F580-F6FF (wskaźnik zapisu w F50E)
+- Gdy bufor pełny (bit 7 wskaźnika): flush — otwiera plik BDOS fn 0F/16/23/22/10
+- Wysyła dane przez SIO-B (PUNCH = SIO-B output)
+- Używane przez PIP PUN:=... do buforowanego wysyłania plików
+
+### LIST/IOBYTE routing (0x11A3)
+- Sprawdza IOBYTE (call 0x14A9)
+- 3 ścieżki: SIO-B (JP F503), port równoległy 0x98, SIO-B alternate (F365/LO)
+- SIO-B alternate ładuje konfigurację LO (nadajnik)
+
 ## 2026-06-17 — Analiza nieudokumentowanych obszarów
 
 ### Archiwizator/kompresja (0x4E00-0x5200, 0x6000-0x6700)

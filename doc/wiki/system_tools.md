@@ -53,9 +53,42 @@ lub z linii poleceń CCP.
 - "opcja (R, S, U) lub napęd:" — R=odczyt, S=zapis?, U=użytkownik?
 - "opcja (U) lub napęd:" — wybór napędu
 
+## SUBMIT / COMSUB (0x428D-0x429A)
+- Komenda "COMSUB" — wbudowany handler CCP
+- Wzorzec pliku: `$$$     SUB` (0x4724)
+- Przetwarza batch file: kopiuje blok 0x0C00 bajtów, wykonuje linie
+- Po zakończeniu: `JP 0x3EBF` (powrót do pętli CCP)
+- Komunikat błędu: ".jNie istnieje plik 'SUB'$" (0x4051)
+
+## RAM-dysk — zarządzanie (0x5BA0-0x5C00)
+- "Plik{w: $" — wyświetla nazwę pliku
+- "Pozosta|o: $" — wyświetla wolne miejsce
+- Odczytuje dane z 0x8868 (nazwa?) i 0x8899 (liczniki?)
+- Wywołuje BDOS fn 1B (DRV_ALLOC) do sprawdzenia alokacji
+- Bloki 2KB (BSH=4), do 210 bloków = 420KB
+
+## Drukowanie w tle — szczegóły (0x4989-0x4A40, 0x5740-0x5800)
+- Flaga w F26B bit 2: "Włączone drukowanie w tle"
+- Bufor: plik LO#.PRN (0x4A0A — ".jZ = zakończ plik LO#.PRN")
+- Program Drukarki (0x247E-0x266C) — 7 opcji:
+  1. "Czy zatrzymać drukowanie w tle" (IY=251Fh)
+  2. "Drukarka wyłączona" (IY=2545h)  
+  3. "Czy w tekście używa się `@^~]}{[|\`" — polskie znaki (IY=2612h)
+  4. "Czy zerować bit podczas drukowania" — HIGH bit stripping
+  5. "Czy wysyłać znak TAB do drukarki"
+  6. "Wyjście do systemu" — exit
+- "Znaki do drukarki" (0x23C6): tryb interaktywny, Ctrl+Z=koniec
+- "Pisz znaki do drukarni" (0x2411): z formatowaniem
+
+## Zwolnienie dysków D E F (0x6910)
+- ".j Zwolnienie dysków D E F $" — komunikat
+- Procedura 0x69A0: zwalnia/odmontowuje napędy zdalne
+- Używane przy przełączaniu konfiguracji łącza V.24
+- Po zwolnieniu: napędy D/E/F niedostępne do ponownej konfiguracji
+
 ## Inne narzędzia
 - ".jrandom$" (0x52E5) — generowanie losowych nazw/danych
-- "Zakończ plik LO#.PRN" (0x4A0A) — zamknięcie bufora wydruku
-- "Zwolnienie dysków D E F" (0x6910) — zarządzanie napędami zdalnymi
-- "RND$" (0x6AB0) — prawdopodobnie RANDOM/procedura losowa
+- "RND$" (0x6AB0) — RANDOM/procedura losowa
 - "koniec" (0x6997) — znacznik końca listy/pętli
+- "Nowa nazwa :" / "Podaj nazwę :" — rename (0x6764/0x67A9)
+- "kopia na plik :" — copy to file (0x67CC)
