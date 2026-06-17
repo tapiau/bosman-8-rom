@@ -158,7 +158,78 @@ V24_CFG_COMMON:
 	dec a			; 19EB  indeks od 0
 	ld b,003h		; 19EC
 	call DSP_FIELD		; 19EE  2697h
-	; (dalsze pola: RTS, prędkość, automatyczne odblokowanie...)
+	ld b,004h		; 19F1
+	jp c,V24_MENU_ENTRY	; 19F3  ESC -> powrot
+	inc a			; 19F6
+
+	; --- Pole 5: Odbiornik odblokowany (IY = 1BA9h) ---
+	rlca			; 19F7
+	rlca			; 19F8
+	ld c,a			; 19F9
+	ld a,(de)		; 19FA
+	and 0F3h		; 19FB
+	or c			; 19FD
+	ld (de),a		; 19FE
+	ld iy,CFG_RX_UNLOCK	; 19FF  1BA9h
+	ld a,(de)		; 1A03
+	ld b,0C3h		; 1A04
+	call DSP_FIELD		; 1A06  2697h
+	ld b,005h		; 1A09
+	jp c,V24_MENU_ENTRY	; 1A0B  ESC -> powrot
+	ld (de),a		; 1A0E
+
+	; --- Pole 6: Nadajnik odblokowany (IY = 1BEBh) ---
+	ld iy,CFG_TX_UNLOCK	; 1A0F  1BEBh
+	dec de			; 1A13
+	ld a,(de)		; 1A14
+	ld b,001h		; 1A15
+	call DSP_FIELD		; 1A17  2697h
+	ld b,006h		; 1A1A
+	jp c,V24_MENU_ENTRY	; 1A1C  ESC -> powrot
+	ld (de),a		; 1A1F
+
+	; --- Pole 7: Automatyczne odblokowanie (IY = 1C1Fh) ---
+	ld iy,CFG_AUTO_UNLOCK	; 1A20  1C1Fh
+	inc de			; 1A24
+	inc de			; 1A25
+	ld a,(de)		; 1A26
+	ld b,061h		; 1A27
+	call DSP_FIELD		; 1A29  2697h
+	ld b,007h		; 1A2C
+	jp c,V24_MENU_ENTRY	; 1A2E  ESC -> powrot
+	ld (de),a		; 1A31
+
+	; --- Pole 8: -DTR poziom (IY = 1C4Ch) ---
+	ld iy,CFG_DTR_LEVEL	; 1A32  1C4Ch
+	dec de			; 1A36
+	dec de			; 1A37
+	ld a,(de)		; 1A38
+	ld b,0A1h		; 1A39
+	call DSP_FIELD		; 1A3B  2697h
+	ld b,008h		; 1A3E
+	jp c,V24_MENU_ENTRY	; 1A40  ESC -> powrot
+	ld (de),a		; 1A43
+
+	; --- Pole 9: -RTS poziom (IY = 1C64h) ---
+	ld iy,CFG_RTS_LEVEL	; 1A44  1C64h
+	inc de			; 1A48
+	inc de			; 1A49
+	ld a,(de)		; 1A4A
+	ld b,0E1h		; 1A4B
+	call DSP_FIELD		; 1A4D  2697h
+	ld b,009h		; 1A50
+	jp c,V24_MENU_ENTRY	; 1A52  ESC -> powrot
+	ld (de),a		; 1A55
+
+	; --- Pole 10: Szybkosc transmisji (IY = 1C8Dh) ---
+	; Handler numeryczny (0x1748) - uzytkownik wpisuje wartosc countera
+	ld iy,CFG_SPEED		; 1A56  1C8Dh
+	ld a,(de)		; 1A5A
+	ld b,021h		; 1A5B
+	call DSP_FIELD		; 1A5D  2697h
+	ld b,00Ah		; 1A60
+	jp c,V24_MENU_ENTRY	; 1A62  ESC -> powrot
+	ld (de),a		; 1A65
 
 ; =============================================================================
 ; Tablice konfiguracyjne V.24 (0x1AFC-0x1C50)
@@ -238,15 +309,60 @@ CFG_DTR:
 ; Pozostałe stringi konfiguracyjne (różne adresy)
 ; =============================================================================
 
+	org	01BA9h
+; --- Odbiornik odblokowany (NIE/TAK) ---
+CFG_RX_UNLOCK:
+	DEFW CFG_YESNO_OPTS	; 1BA9h
+	DEFW MSG_RX_UNLOCKED	; 1BABh  "Odbiornik odblokowany"
+	DEFB 000h,000h,0FFh,025h,00Bh,04Dh,00Dh	; header
+
+	org	01BEBh
+; --- Nadajnik odblokowany (NIE/TAK) ---
+CFG_TX_UNLOCK:
+	DEFW CFG_YESNO_OPTS	; 1BEBh
+	DEFW MSG_TX_UNLOCKED	; 1BEDh  "Nadajnik odblokowany"
+	DEFB 000h,000h,0FFh,025h,00Dh,04Dh,00Fh	; header
+
+	org	01C1Fh
+; --- Automatyczne odblokowanie ---
+CFG_AUTO_UNLOCK:
+	DEFW CFG_YESNO_OPTS	; 1C1Fh
+	DEFW MSG_AUTO_UNLOCK	; 1C21h  "%Automatyczne odblokowanie"
+
+	org	01C4Ch
+; --- -DTR poziom (wysoki/niski) ---
+CFG_DTR_LEVEL:
+	DEFW CFG_HILO_OPTS	; 1C4Ch  "wysoki\0niski\0"
+	DEFW MSG_DTR_LABEL	; 1C4Eh  "%-DTR"
+
+	org	01C64h
+; --- -RTS poziom (wysoki/niski) ---
+CFG_RTS_LEVEL:
+	DEFW CFG_HILO_OPTS	; 1C64h
+	DEFW MSG_RTS_LABEL	; 1C66h  "-RTS"
+
+	org	01C8Dh
+; --- Szybkosc transmisji (pole numeryczne) ---
+CFG_SPEED:
+	DEFW 01C85h		; 1C8Dh  opcje (wspoldzielone z DTR)
+	DEFW MSG_SPEED_LABEL	; 1C8Fh  "Szybkosc transmisji"
+	; handler numeryczny pod 0x1748 (uzytkownik wpisuje counter)
+
+; Stringi
 MSG_DTR:	DEFB ' %-DTR', 000h
 MSG_DTR_HIGH:	DEFB 'wysoki', 000h
 MSG_DTR_LOW:	DEFB 'niski', 000h
 MSG_RTS:	DEFB '-RTS', 000h
-MSG_SPEED:	DEFB ' Szybko', 0BDh, 0C6h, ' transmisji        bod', 000h
+MSG_DTR_LABEL:	DEFB ' %-DTR', 000h
+MSG_RTS_LABEL:	DEFB '-RTS', 000h
+MSG_SPEED_LABEL: DEFB ' Szybko', 0BDh, 0C6h, ' transmisji        bod', 000h
 MSG_RX_UNLOCKED: DEFB 'Odbiornik odblokowany', 000h
 MSG_TX_UNLOCKED: DEFB 'Nadajnik odblokowany', 000h
 MSG_TX_LOCKED:	DEFB 'Nadajnik zablokowany ', 000h
 MSG_AUTO_UNLOCK: DEFB ' %Automatyczne odblokowanie', 000h
+
+CFG_YESNO_OPTS:	DEFB 'NIE', 000h, 'TAK', 000h
+CFG_HILO_OPTS:	DEFB 'wysoki', 000h, 'niski', 000h
 
 ; =============================================================================
 ; Adresy

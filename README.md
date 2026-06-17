@@ -29,6 +29,7 @@ rom/
 │   ├── bdos_functions.md
 │   ├── hardware.md
 │   ├── disk_interlink.md
+│   ├── rom_map.md
 │   └── emulation.md
 └── src/                                       # podzielony kod asm
     ├── vectors.asm
