@@ -312,13 +312,74 @@ RAM_P_TERMCPM	equ 0F203h
 ;   Używane przy ERA *.* i podobnych operacjach z wildcardami
 ;   Wypełnia bufor '?' (0x3F), czeka na 'T' lub 'N'
 ;   'T' → wykonaj dla wszystkich, 'N' → anuluj
-; F_SFIRST (0x3534): szuka pierwszego pasującego pliku (wildcards)
-; F_SNEXT  (0x3553): szuka następnego (po F_SFIRST)
+; F_SFIRST — algorytm (0x3534):
+;   → Sprawdza czy pierwszy znak nazwy to '?' (wildcard)
+;   → Jeśli nie: init FCB (zeruje bajty)
+;   → BDOS_SETUP, DIR_SEARCH (C=0Fh), zapamiętuje FCB w F03A
+;   → Zwraca pierwszy pasujący wpis katalogowy
+;
+; F_SNEXT — algorytm (0x3553):
+;   → Odtwarza FCB z F03A (zapisany przez F_SFIRST)
+;   → BDOS_SETUP, kontynuuje search (3957h)
+;   → Zwraca następny pasujący wpis
+;
+; RANDOM_POSITION (0x3A2D) — pozycjonowanie do rekordu:
+;   Wejście: C=FF (read) lub C=00 (write)
+;   → SET 4,(F03C) — random access mode
+;   → ALLOC (3A9D) — znajdź blok dla rekordu
+;   → Porównuje extent (FCB+0C) i record (FCB+0E) z żądanymi
+;   → Jeśli nie pasuje: zamyka bieżący extent (3493h), szuka dalej
+;   → Używane przez F_RNDREAD, F_RNDWRITE, CPMR_FN40
 ; F_DELETE (0x356C): usuwa plik, czyści wpisy katalogowe
-; F_READ   (0x3598): czyta 128B sektor, obsługa sequential access
-; F_WRITE  (0x35D8): zapisuje 128B sektor, alokacja bloków
-; F_MAKE   (0x3708): tworzy nowy plik, wpis do katalogu
-; F_RENAME (0x374E): zmienia nazwę, kopiuje FCB
+; F_READ — algorytm (0x3598):
+;   1. BDOS_SETUP (3B33), res 6 flag (READ mode)
+;   2. Sprawdź current record (F041) vs max (F03F)
+;      → jeśli >= 128: koniec extentu (39CD), reset rekordu
+;      → jeśli > max: EOF → zwróć 01h
+;   3. ALLOC_BLOCK (3BB8) — znajdź adres bloku dla bieżącego rekordu
+;      → jeśli brak bloku (HL=0): EOF
+;   4. Odczytaj blok (3C02), kopiuj dane (3D87), aktualizuj liczniki (3E4E)
+;   5. Zapisz 128B do bufora DMA (36BA)
+;
+; F_WRITE — algorytm (0x35D8):
+;   1. BDOS_SETUP (3B33), set 6 flag (WRITE mode)
+;   2. Sprawdź R/O (3C6E) — czy plik niezabezpieczony przed zapisem
+;   3. Setup sequential (3C1D), sprawdź record < 128
+;      → jeśli >= 128: koniec extentu
+;   4. ALLOC_BLOCK (3BB8) — znajdź istniejący blok
+;      → jeśli brak (HL=0): ALLOC_NEW (3BC5) — przydziel NOWY blok
+;        → zapisz w allocation vector (36CF)
+;        → jeśli brak miejsca: zwróć błąd 02h
+;      → zapisz nowy adres bloku w FCB
+;   5. Zapisz dane z DMA do bloku
+;
+; ALLOC_BLOCK (3BB8): znajduje adres bloku dla rekordu w extent
+;   → wywołuje ALLOC_NEW, potem 3BE2 (przelicza na adres fizyczny)
+;   → wynik w HL = adres bloku w pamięci/dysku
+;
+; ALLOC_NEW (3BC5): przydziela nowy blok z allocation vector
+;   → odczytuje F026 (block shift), F041 (record), F040 (flags)
+;   → rotuje bity by znaleźć wolny blok
+;   → zwraca numer bloku w A (0 = brak wolnych)
+;
+; EOF handling: F_READ zwraca 01h, F_WRITE zwraca 02h przy braku miejsca
+; F_MAKE — algorytm (0x3708):
+;   1. FCB_INIT, BDOS_SETUP, przygotowanie katalogu (3CE7)
+;   2. DIR_SEARCH (C=01h) — sprawdź czy plik JUŻ ISTNIEJE
+;   3. Jeśli DIR_NEXT coś znajdzie → błąd (plik istnieje)
+;   4. Jeśli nie: inicjalizuj nowy wpis — zeruj 17 bajtów FCB
+;   5. Wpis gotowy do zapisania przez F_CLOSE
+;
+; F_RENAME — algorytm (0x374E):
+;   1. BDOS_SETUP, DIR_SEARCH (C=0Ch) — znajdź plik
+;   2. DIR_NEXT (3D70) — pobierz wpis katalogowy
+;   3. Kopiuj 12 bajtów nowej nazwy (FCB+16) do wpisu katalogowego
+;   4. Nowa nazwa nadpisuje starą w katalogu
+;
+; GET_DISK_INFO (0x0FD1) — wrapper odczytu z bankowaniem:
+;   → Sprawdza F26B bit 6 (CCP mode?)
+;   → Jeśli ustawiony: bank switch (FN_F30F) przed odczytem
+;   → Umożliwia dostęp do danych w różnych bankach pamięci
 
 ; --- Funkcje systemowe (0x37xx-0x38xx) ---
 ; DRV_LOGVEC  (0x3779): zwraca wektor zalogowanych napędów
@@ -330,9 +391,17 @@ RAM_P_TERMCPM	equ 0F203h
 ; F_ATTR     (0x37B5): ustawia atrybuty pliku (R/O, SYS, ARCH)
 ; DRV_DPB    (0x37CF): zwraca adres DPB dla napędu
 ; F_USERNUM  (0x37D6): get/set user number (0-15)
-; F_RNDREAD  (0x37E7): random read — pozycjonuje i czyta
-; F_RNDWRITE (0x37F8): random write — pozycjonuje i zapisuje
-; F_SIZE     (0x3804): oblicza rozmiar pliku (random mode)
+; F_RNDREAD (0x37E7): position (3A2D, C=FFh) → deleguje do F_READ (359Bh)
+; F_RNDWRITE (0x37F8): position (3A2D, C=00h) → deleguje do F_WRITE (35DBh)
+;
+; F_SIZE — algorytm (0x3804):
+;   1. BDOS_SETUP, DIR_SEARCH (C=0Ch) — znajdź plik
+;   2. Zeruj 3 bajty akumulatora rozmiaru w FCB+21h
+;   3. Pętla po wpisach katalogowych (DIR_NEXT):
+;      → odczytaj record count z offsetu +0F
+;      → odejmij od akumulatora (16-bit SBC)
+;      → sumuj przez wszystkie extenty
+;   4. Wynik w FCB — rozmiar pliku w rekordach (×128 bajtów)
 ; F_RNDREC   (0x384B): ustawia random record na podstawie FCB
 ; DRV_RESET2 (0x385C): reset konkretnego napędu
 

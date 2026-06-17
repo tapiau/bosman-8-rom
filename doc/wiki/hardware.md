@@ -150,6 +150,20 @@ Trzy napędy skonfigurowane w ROM:
   - 4MHz Z80 + WD1770 DMA jest wystarczająco szybki na sektory bez przeplotu
 - **DPH 1 i 3** nie mają XLT (XLT=0)
 
+### Struktura dysku
+
+| Element | RAM-dysk | Floppy |
+|---------|----------|--------|
+| Bloków | 210 (2KB każdy) | 200 (1KB każdy) |
+| Katalog | 2 bloki = 128 wpisów | 2 bloki = 64 wpisy |
+| ALV | 27 bajtów (1 bit/blok) | 25 bajtów |
+| CSV | 32 bajty (checksum) | 16 bajtów |
+| OFF | 0 (brak zarezerwowanych ścieżek) | 0 |
+| SPT | 240 (nieużywane) | 40 sektorów/ścieżkę |
+| Ścieżek | — | ~40 (200 bloków × 1KB / 40 / 128B) |
+
+Floppy: 40 ścieżek × 40 SPT × 128B = 200KB. Format 5.25" single-sided?
+
 ## Mapa pamięci
 
 512 KB RAM, zarządzane przez bank switching (porty 0x04, 0x05, 0x06):

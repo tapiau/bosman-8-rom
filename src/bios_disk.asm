@@ -283,50 +283,69 @@ RECV_BYTE:
 	add a,b			; 0635  dodaj do sumy kontrolnej
 	ld b,a			; 0636  aktualizuj checksum
 
-; --- WAIT_RESP: wyślij komendę i czekaj na odpowiedź ---
-; Wejście: C = kod komendy
-WAIT_RESP:
-	ld a,(V24_READY)	; 0637
-	or a			; 063A
-	ret nz			; 063B  błąd → nic nie rób
-	jp SIOB_SEND		; 063C  1247h — wyślij C przez SIO-B
+; --- SEND_CHECKSUM (0x0634): wyślij bajt z akumulacją sumy ---
+; ADD A,B; LD B,A → aktualizuje bieżący checksum
+; Potem wysyła bajt przez WAIT_RESP → SIO-B (C_PUNCH)
+SEND_CHECKSUM:
+	ld c,a			; 0634  bajt do wysłania
+	add a,b			; 0635  dodaj do sumy
+	ld b,a			; 0636  aktualizuj checksum
+	; fall-through do WAIT_RESP
 
-; --- CHECKSUM: neguj sumę kontrolną ---
+; --- WAIT_RESP (0x0637): wyślij bajt przez SIO-B ---
+; Jeśli V.24 nieaktywne (F267=0): nic nie robi
+; Inaczej: JP C_PUNCH (1247h) → wysyła bajt przez SIO-B
+WAIT_RESP:
+	ld a,(V24_READY)	; 0637  F267 — czy łącze aktywne?
+	or a			; 063A
+	ret nz			; 063B  nie → ignoruj
+	jp C_PUNCH		; 063C  1247h — wyślij przez SIO-B!
+
+; --- CHECKSUM_NEG (0x063F): wyślij zanegowaną sumę kontrolną ---
+; Protokół CP/M: odbiorca sumuje wszystkie bajty + negację → powinno dać 0
 CHECKSUM_NEG:
-	ld a,b			; 063F
-	cpl			; 0640  negacja bitowa
-	inc a			; 0641  +1 (uzupełnienie do 2)
-	ld c,a			; 0642
-	call SIOB_RECV_BYTE	; 0643  0609h — wyślij checksum
-	jr nc,.verify_ok	; 0646
-	xor a			; 0648
+	ld a,b			; 063F  aktualna suma
+	cpl			; 0640  negacja bitowa (1's complement)
+	inc a			; 0641  +1 (2's complement)
+	ld c,a			; 0642  do wysłania
+	call SEND_BYTE		; 0643  0609h — wyślij przez WAIT_RESP
+	jr nc,.verify_ok	; 0646  OK
+	xor a			; 0648  błąd → wyczyść
 .verify_ok:
 	or a			; 0649
 	ret			; 064A
 
-; --- BLOCK_READ: odczytaj pełny blok 128 bajtów z SIO-B ---
-; Wywołuje CHECKSUM_NEG, potem czyta 128 bajtów + sumę kontrolną
-	call 006AAh		; 064B  (pomocnicza inicjalizacja)
+; --- BLOCK_READ (0x064B): odczytaj 128B sektor przez SIO-B ---
+; Protokół:
+;   1. Wyślij rozkaz 0xF2 z checksumem
+;   2. Odbierz 128 bajtów danych (z akumulacją sumy)
+;   3. Odbierz bajt checksum — porównaj
+;   4. Timeout: 0xFF00 iteracji (~65 sekund)
+; Używane do odczytu zdalnych sektorów przez D/E/F
+BLOCK_READ:
+	call FDC_CMD_SETUP	; 064B  06AAh — wyślij rozkaz
 .block_wait:
-	ld c,0F2h		; 064E
-	ld b,c			; 0650
-	call WAIT_RESP		; 0651
-	call CHECKSUM_NEG	; 0654
-	jr nz,.block_wait	; 0657  powtarzaj aż OK
+	ld c,0F2h		; 064E  kod rozkazu read
+	ld b,c			; 0650  init checksum
+	call WAIT_RESP		; 0651  wyślij rozkaz
+	call CHECKSUM_NEG	; 0654  wyślij negację sumy
+	jr nz,.block_wait	; 0657  błąd transmisji → ponów
+
 	ld hl,0FF00h		; 0659  timeout = 65280
-	ld (TIMEOUT_CNT),hl	; 065C
-	ld hl,(CUR_DMA)		; 065F  F351h — adres DMA
-	ld c,080h		; 0662  128 bajtów (sektor CP/M)
+	ld (TIMEOUT_CNT),hl	; 065C  FA19h
+	ld hl,(CUR_DMA)		; 065F  F351h — adres bufora DMA
+	ld c,080h		; 0662  128 bajtów
 	ld b,000h		; 0664  checksum = 0
 .read_loop:
-	call RECV_BYTE		; 0666  odbierz bajt
-	ld (hl),a		; 0669  zapisz w buforze DMA
+	call RECV_BYTE		; 0666  060Ch — odbierz bajt z timeoutem
+	ld (hl),a		; 0669  zapisz w buforze
 	inc hl			; 066A
-	add a,b			; 066B  dodaj do checksum
+	add a,b			; 066B  akumuluj sumę
 	ld b,a			; 066C
 	dec c			; 066D
-	jr nz,.read_loop	; 066E  powtórz 128 razy
-	call RECV_BYTE		; 0670  odbierz checksum
+	jr nz,.read_loop	; 066E  ×128
+	call RECV_BYTE		; 0670  odbierz bajt checksum
+	; weryfikacja: suma wszystkich bajtów + checksum == 0?
 	; (dalsza weryfikacja...)
 
 ; =============================================================================

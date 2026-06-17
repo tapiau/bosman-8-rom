@@ -12,12 +12,16 @@ Własny format kompresji plików. Wielofazowy pipeline:
 2. **^ciskanie** (0x53B2) — właściwa kompresja
 3. **skopiowany** (0x54A3) — plik wynikowy gotowy
 
-### Algorytm dekompresji (0x63C6)
-- Używa **LDDR** (0x6413) do kopiowania z overlapem — **LZ77/LZSS sliding window**
-- Bufory w górnym RAM: 0xA800, 0xAC00, 0xABFF
-- Literały: `bit 2,h; jr nz; ld a,(hl); inc hl` — kopiowanie bajt po bajcie
-- Słownik: pętla z `add hl,bc` i `LDDR` dla powtarzających się sekwencji
-- Rozmiar okna: ~1KB (0xA800-0xABFF)
+### Algorytm dekompresji LZSS (0x63C6)
+- **Sliding window**: 0xA800-0xABFF (~1KB)
+- **LDDR** (0x6413): kopiowanie z overlapem (backwards copy = safe dla sliding window)
+- **Token dispatch** (0x5CF9): 16 typów tokenów, tablica skoków w 0x5D15
+  - Literały: `bit 2,h; jr nz; ld a,(hl); inc hl` — kopiowanie bajt po bajcie
+  - Referencje: odczytuje (offset, length) → kopiuje z okna przez `add hl,bc`
+  - Specjalne: EOF, reset słownika, itp.
+- **Slide** (0x63FE): gdy okno pełne, przesuwa dane przez LDDR
+- Bufory robocze: B71C (wskaźnik okna), B71E (flaga), 8880h (typ tokenu)
+- Format pliku: nagłówek + tablica dekodująca + dane + checksum
 
 ### Walidacja (0x6200-0x6400)
 - Sprawdzenie nagłówka: "to nie jest 'ściśnięty' plik"
@@ -108,6 +112,27 @@ lub z linii poleceń CCP.
 - Procedura 0x69A0: zwalnia/odmontowuje napędy zdalne
 - Używane przy przełączaniu konfiguracji łącza V.24
 - Po zwolnieniu: napędy D/E/F niedostępne do ponownej konfiguracji
+
+## Kopia ekranu — szczegóły (0x1CC8-0x1E2C)
+
+Interaktywne narzędzie do przechwytywania zawartości terminala do pliku.
+
+### Sterowanie:
+| Klawisz | Funkcja |
+|---------|---------|
+| Ctrl+E (05h) | Przesuń obszar w górę |
+| Ctrl+X (18h) | Przesuń obszar w dół |
+| Ctrl+S (13h) | Przesuń obszar w lewo |
+| Ctrl+D (04h) | Przesuń obszar w prawo |
+| Enter (0Dh) | Zatwierdź i zapisz do pliku |
+| ESC (1Bh) | Anuluj |
+
+### Algorytm:
+1. Wyświetla ramkę z '?' wokół obszaru
+2. Rotacja buforów co 200ms dla migającego kursora
+3. B112-B114: współrzędne obszaru (X, Y, szerokość?)
+4. Krok przesunięcia: ±8 jednostek
+5. Po zatwierdzeniu: zapisuje bufor terminala (0x8800+) do pliku
 
 ## Inne narzędzia
 - ".jrandom$" (0x52E5) — generowanie losowych nazw/danych

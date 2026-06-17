@@ -229,20 +229,55 @@ WD1770_STEP:
 ; =============================================================================
 ; WD1770_CALLBACK — obsługa po zakończeniu komendy FDC (0x0D6F)
 ; =============================================================================
+; UWAGA: INC SP/INC SP POZBYWA SIĘ ADRESU POWROTU!
+; To nie jest zwykły callback — to TRANSFER STEROWANIA.
+; Po zakończeniu komendy FDC, sterowanie przechodzi tutaj i NIE WRACA.
 WD1770_CALLBACK:
-	out (0F2h),a		; 0D6F
-	inc sp			; 0D71  usuń adres powrotu
-	inc sp
+	out (0F2h),a		; 0D6F  sygnał sterowania
+	inc sp			; 0D71  POP return address!
+	inc sp			; 0D72  (kontynuacja inline, nie powrót)
 	ld a,(F33E)		; 0D73  numer ścieżki
 	out (089h),a		; 0D76  WD1770 — rejestr ścieżki
-	ld a,(F340)		; 0D78  zapamiętany rozkaz
-	or a			; 0D7B
+	ld a,(F340)		; 0D78  zapamiętany rozkaz FDC
+	or a			; 0D7B  rozkaz = 0?
 	push hl			; 0D7C
-	ld hl,0147Dh		; 0D7D  komunikat?
+	ld hl,0147Dh		; 0D7D  komunikat błędu
 	call z,STR_OUT		; 0D80  wyświetl jeśli błąd
 	pop hl			; 0D83
 	in a,(088h)		; 0D84  odczytaj status WD1770
-	ret			; 0D86
+	; ... kontynuuje dalsze przetwarzanie ...
+
+; =============================================================================
+; H-ERROR callback (0x0E5D) — timeout FDC
+; =============================================================================
+; Również INC SP/INC SP — transfer sterowania, nie powrót.
+; Sprawdza WD1770 status bit 2 (TRACK 0 przy Type I, DRQ przy Type II/III).
+H_ERROR_CALLBACK:
+	out (0F2h),a		; 0E5D
+	inc sp / inc sp		; 0E5F  POP return address
+	in a,(088h)		; 0E61  WD1770 status
+	and 004h		; 0E63  bit 2 — TRACK0? DRQ?
+	ret			; 0E65
+
+; =============================================================================
+; WD1770 wait loop (0x0DE7) — oczekiwanie na gotowość
+; =============================================================================
+; Czeka na bit 2 portu 0x98 (device ready) lub timeout (BC).
+WD1770_WAIT:
+	call DELAY		; 0DE7  ~1ms
+	in a,(098h)		; 0DEA  status urządzenia
+	and 004h		; 0DEC  bit 2 — gotowe?
+	jr nz,.ready		; 0DEE  tak
+	dec bc			; 0DF0  dekrementuj timeout
+	ld a,b / or c		; 0DF1
+	jr nz,WD1770_WAIT	; 0DF3  jeszcze nie timeout
+	jr .timeout		; 0DF5
+.timeout:
+	out (0F4h),a		; 0DF7  sygnał błędu
+	ld a,005h
+	call DELAY		; 0DFB  ~5ms
+	out (0F5h),a		; 0DFE  drugi sygnał
+	ret			; 0E00
 
 ; =============================================================================
 ; H-ERROR Handler (0x0DF7-0x0E2E)
@@ -310,6 +345,21 @@ H_ERROR_MSG:
 ; =============================================================================
 ; Adresy i stałe
 ; =============================================================================
+
+; =============================================================================
+; WD1770 — komendy
+; =============================================================================
+; 0x80 = READ SECTOR  (polling: IN A,(98h); RRA; JP C; INI)
+; 0xA4 = WRITE SECTOR (polling: IN A,(98h); RRA; JP C; OUTI)
+; 0x10 = STEP         (step rate z bitów 1-0)
+; 0x08 = RESTORE      (powrót na ścieżkę 0)
+; 0xD0 = FORCE INTERRUPT (przerwanie/abort)
+;
+; Transfer: INI (read) / OUTI (write) przez port 0x8B
+; Status po komendzie: IN A,(088h); maska 7Fh (clear MOTOR ON)
+;   Bity błędów: 1Fh — CRC, RNF, LOST DATA, WRITE FAULT
+;   Retry: F33F — licznik, max 3-5 prób
+;   RNF (bit 4): Record Not Found — specjalna obsługa
 
 ; Porty WD1770
 FDC_CMD		equ 088h	; rejestr rozkazów/statusu
