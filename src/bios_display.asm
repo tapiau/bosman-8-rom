@@ -193,16 +193,99 @@ BOX_CHAR:
 	ret
 
 .mode_op:
-	; Od 0x298D — konfiguracja trybu terminala
+	; DSP_MODE (0x298D) — wyświetlenie menu/trybu
+	; Zapisuje HL i BC do bufora terminala (0x8806/0x8808)
+	; Odczytuje współrzędne z IY-4..IY-1: x1,y1,x2,y2
+	ld (08806h),hl		; 298D
+	ld (08808h),bc		; 2990
+	ld l,(iy-004h)		; 2994
+	ld h,(iy-003h)		; 2997
+	ld e,(iy-002h)		; 299A
+	ld d,(iy-001h)		; 299D
+	; ... wyświetla strukturę menu
 	ret
 
-.clear_op:
-	; Od 0x2C07 — czyszczenie ekranu
-	ret
-
+	; --- CURSOR_SET (0x2BF4) — ustawienie kursora ---
 .default_op:
-	; Od 0x2BF4 — operacja domyślna
-	ret
+	ld c,03Dh		; 2BF4  '=' — kod pozycjonowania
+	call CHAR_OUT2		; 2BF6  ESC + '='
+	ld a,h			; 2BF9  wiersz (Y)
+	add a,020h		; 2BFA  +32 (konwersja na ASCII)
+	ld c,a			; 2BFC
+	call CHAR_OUT		; 2BFD  wyślij Y
+	ld a,l			; 2C00  kolumna (X)
+	add a,020h		; 2C01  +32
+	ld c,a			; 2C03
+	jp CHAR_OUT		; 2C04  wyślij X
+
+	; --- CLEAR_SCREEN? (0x2C07) — czyszczenie ---
+.clear_op:
+	ld a,07Ah		; 2C07  'z'?
+	add a,h			; 2C09
+	ld c,a			; 2C0A
+	call CHAR_OUT2		; 2C0B
+	ld c,l			; 2C0E
+	call CHAR_OUT		; 2C0F
+	ld c,b			; 2C12
+	jp CHAR_OUT		; 2C13
+
+	; --- CHAR_OUT2 (0x2C2F) — wyjście znaku z prefiksem ESC ---
+	push bc			; 2C2F
+	ld c,01Bh		; 2C30  ESC
+	call CHAR_OUT		; 2C32  2CD9h
+	pop bc			; 2C35
+	jp CHAR_OUT		; 2C36
+
+	; --- BS_SPACE (0x2C39) — backspace+spacja ---
+	call .bs		; 2C39  2C3Fh
+	call .space		; 2C3C  2C44h
+.bs:	ld c,008h		; 2C3F  BS
+	jp CHAR_OUT		; 2C41
+.space:	ld c,020h		; 2C44  spacja
+	jp CHAR_OUT		; 2C46
+	; BEL (0x2C49): LD C, 07h; JP CHAR_OUT
+
+	; --- IS_DIGIT? (0x2C4E) — sprawdzenie czy cyfra ---
+	sub 030h		; 2C4E
+	ret c			; 2C50  < '0'
+	add a,0E9h		; 2C51
+	ret c			; 2C53
+	add a,006h		; 2C54
+	jp p,.is_hex		; 2C56
+	add a,007h		; 2C59
+	ret c			; 2C5B
+.is_hex:
+	add a,00Ah		; 2C5C
+	or a			; 2C5E
+	ret			; 2C5F
+
+	; --- CHAR_OUT (0x2CD9) — wyjście znaku na SIO-A ---
+	; (wysyła bajt przez port szeregowy)
+	; --- DELAY (0x2C67) — opóźnienie ~A*1ms ---
+	; (pętla czasowa)
+
+	; --- CON_CHECK (0x2CE7) — sprawdzenie czy znak gotowy ---
+	; IN A,(082h); AND 001h; RET  → sprawdza SIO-A Rx ready
+
+	; --- CON_IN (0x2CEC) — odczyt znaku z SIO-A ---
+	; Czeka na Rx ready, potem IN A,(080h)
+
+	; --- CHAR_UPPER (0x2CF7) — konwersja a-z → A-Z ---
+	; CP 061h; RET C; CP 07Bh; RET NC; AND 05Fh; RET
+
+; =============================================================================
+; BIOS Jump Table (0x2D00-0x2D0F) — alternatywne wejścia
+; =============================================================================
+	JP BIOS_WARM		; 2D00  F376h — warm boot
+	JP BIOS_WARM		; 2D03  F376h
+	JP BIOS_CONST		; 2D06  F3B3h — console status
+	JP BIOS_CONIN		; 2D09  F3ABh — console input
+	JP BIOS_CONOUT		; 2D0C  F3CEh — console output
+
+BIOS_WARM	equ 0F376h
+BIOS_CONST	equ 0F3B3h
+BIOS_CONIN	equ 0F3ABh
+BIOS_CONOUT	equ 0F3CEh
 
 ; =============================================================================
 ; Bufory terminala (memory-mapped, NIE porty I/O)

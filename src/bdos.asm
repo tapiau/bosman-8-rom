@@ -251,6 +251,61 @@ CPMR_FN41	equ 0387Bh	; 29 - **ROZSZERZENIE CPM-R**
 ; Funkcja 0 — w RAM (kopiowana podczas bootu)
 RAM_P_TERMCPM	equ 0F203h
 
+; =============================================================================
+; Implementacje funkcji BDOS (szczegóły)
+; =============================================================================
+
+; --- Funkcje konsoli (0x31xx) ---
+; C_READ   (0x3134): czeka na znak, zapisuje do F05C, obsługuje ^prefix (0x5E)
+; C_WRITE  (0x3150): TAB→spacje co 8 kolumn, filtruje CR/LF/BS, wywołuje 0x319C
+; C_RAWIO  (0x31D2): reader input — czyta z SIO-A lub SIO-B wg IOBYTE
+; C_PUNCH  (0x1247): sprawdza IOBYTE, routuje na SIO-B lub port równoległy 0x98
+; C_LIST   (0x0FFB): drukarka — sprawdza flagę F26B bit 3, timeout 0x2500
+; C_DIRIO  (0x31D7): direct I/O — znak bez echa
+; GET_IOBYTE (0x3203): LD A,(0003h); RET
+; SET_IOBYTE (0x320B): LD (0003h),C; RET
+; C_WRITSTR (0x3212): pętla: pobiera znak z (HL), jeśli '$'→koniec, C_WRITE
+; C_READSTR (0x3222): czyta linię do bufora, edycja (BS, Ctrl+C)
+; C_STAT   (0x3355): sprawdza czy znak gotowy (SIO-A status)
+; C_VER    (0x335C): LD A, 025h; RET  → wersja CPM-R = 2.5
+
+; --- Funkcje dyskowe (0x33xx) ---
+; DRV_RESET  (0x3360): resetuje wszystkie napędy, czyści bufory
+; DRV_SELECT (0x3378): wybiera napęd (0=A..5=F), ustawia DPB
+
+; --- Funkcje plikowe (0x34xx-0x37xx) ---
+; F_OPEN   (0x344C): szuka pliku w katalogu, kopiuje FCB, zwraca nr rekordu
+; F_CLOSE  (0x3490): zapisuje FCB do katalogu, aktualizuje allocation
+; F_SFIRST (0x3534): szuka pierwszego pasującego pliku (wildcards)
+; F_SNEXT  (0x3553): szuka następnego (po F_SFIRST)
+; F_DELETE (0x356C): usuwa plik, czyści wpisy katalogowe
+; F_READ   (0x3598): czyta 128B sektor, obsługa sequential access
+; F_WRITE  (0x35D8): zapisuje 128B sektor, alokacja bloków
+; F_MAKE   (0x3708): tworzy nowy plik, wpis do katalogu
+; F_RENAME (0x374E): zmienia nazwę, kopiuje FCB
+
+; --- Funkcje systemowe (0x37xx-0x38xx) ---
+; DRV_LOGVEC  (0x3779): zwraca wektor zalogowanych napędów
+; DRV_CUR     (0x377E): LD A,(0004h); RET  → aktualny napęd
+; F_DMA       (0x3784): ustawia adres DMA (F351)
+; DRV_ALLOC   (0x3795): zwraca adres wektora alokacji
+; DRV_ROVEC_WP (0x379A): ustawia R/O dla napędu
+; DRV_ROVEC   (0x37B0): zwraca wektor R/O
+; F_ATTR     (0x37B5): ustawia atrybuty pliku (R/O, SYS, ARCH)
+; DRV_DPB    (0x37CF): zwraca adres DPB dla napędu
+; F_USERNUM  (0x37D6): get/set user number (0-15)
+; F_RNDREAD  (0x37E7): random read — pozycjonuje i czyta
+; F_RNDWRITE (0x37F8): random write — pozycjonuje i zapisuje
+; F_SIZE     (0x3804): oblicza rozmiar pliku (random mode)
+; F_RNDREC   (0x384B): ustawia random record na podstawie FCB
+; DRV_RESET2 (0x385C): reset konkretnego napędu
+
+; --- Rozszerzenia CPM-R (0x387A-0x387B) ---
+; CPMR_FN38 (0x387A): RET — stub, nic nie robi
+; CPMR_FN39 (0x387A): RET — stub, ten sam co FN38
+; CPMR_FN40 (0x37F3): ustawia bit 5 flag (F03C), write-through RAM-dysku?
+; CPMR_FN41 (0x387B): sprawdza miejsce na dysku, porównuje HL z DE
+
 ; Adresy pomocnicze
 FN_3378		equ 03378h	; pomocnicza operacja dyskowa
 

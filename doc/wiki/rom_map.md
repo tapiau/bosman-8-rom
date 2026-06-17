@@ -58,23 +58,29 @@ Stan na 2026-06-17. Pokrycie: ~12% szczegółowo, ~88% zmapowane.
 - 0x1BA9: tablica odbiornika
 - 0x1BEB: tablica nadajnika
 
-## 0x1BFC-0x266C — Menu urządzeń (✗ brak pliku)
-- "Automatyczne odblokowanie"
-- "-DTR", "-RTS", "Szybkość transmisji"
-- "Kopia ekranu" — zrzut ekranu terminala
-- "Plik" — operacje na plikach
-- "Interfejs drukarki" — konfiguracja Centronics
-- "Interfejs RI" — konfiguracja RS-232
-- "Test V-24" — test łącza
-- "Nadajnik zablokowany" — komunikaty testowe
+## 0x1BFC-0x266C — Menu urządzeń (częściowo, ✓ bios_devices.asm)
+- Pola V.24 5-10: odbiornik, nadajnik, auto, DTR, RTS, prędkość
+- "Kopia ekranu" (0x1CC8) — zrzut bufora terminala do pliku, OBR, granice
+- "Interfejs RI LO PO" (0x224C) — menu RS-232 z podziałem na LO/PO
+- "Interfejs RI" (0x228E) — uproszczona konfiguracja RS-232
+- "Interfejs drukarki" (0x22F4) — konfiguracja Centronics
+- "Znaki do drukarki" (0x23C6) — interaktywne wysyłanie (Ctrl+Z=koniec)
+- "Program Drukarki" (0x247E) — opcje drukowania
+- "Brak miejsca na dysku" (0x1F90)
 
 ## 0x266C-0x2922 — Terminal UI Framework (✓ bios_display.asm)
 - DSP_FIELD, DSP_STRING, DSP_BOX, DSP_OPTION, DSP_INIT
 - Silnik renderowania menu na terminalu
 
-## 0x2922-0x2D00 — Terminal helpers + dyski (✗)
-- Procedury pomocnicze terminala
-- Narzędzia dyskowe
+## 0x2922-0x2D00 — Terminal helpers (✓ bios_display.asm)
+- CURSOR_SET (0x2BF4): ESC = Y+32 X+32 — pozycjonowanie kursora
+- CHAR_OUT2 (0x2C2F): prefiks ESC przed znakiem
+- BS_SPACE (0x2C39): backspace + spacja
+- IS_DIGIT (0x2C4E): sprawdzenie cyfry/heksadecymalnej
+- CON_CHECK (0x2CE7): IN A,(082h) — sprawdzenie SIO-A Rx ready
+- CON_IN (0x2CEC): oczekiwanie na znak z SIO-A
+- CHAR_UPPER (0x2CF7): konwersja a-z → A-Z
+- BIOS Jump Table (0x2D00-0x2D0F): JP do F376(warm),F3B3(constat),F3AB(conin),F3CE(conout)
 
 ## 0x2D00-0x3038 — BIOS runtime w RAM (✓ ram_code.asm)
 - 0x2D00: tablica skoków BIOS (20 wektorów)
@@ -86,9 +92,12 @@ Stan na 2026-06-17. Pokrycie: ~12% szczegółowo, ~88% zmapowane.
 - 0x3038: BDOS_ENTRY — dyspozytor (2 ścieżki)
 - 0x30E0: BDOS_FN_TABLE — tablica 42 funkcji
 
-## 0x3136-0x3E64 — BDOS: implementacje funkcji (✗, zmapowane)
-- Ciała 42 funkcji BDOS
-- Obsługa błędów, stringi komunikatów BDOS
+## 0x3136-0x3E64 — BDOS: implementacje funkcji (częściowo, ✓ bdos.asm)
+- **Konsola**: C_READ(3134), C_WRITE(3150, TAB→spacje), C_RAWIO(31D2), C_PUNCH(1247), C_LIST(0FFB), C_DIRIO(31D7), C_WRITSTR(3212, $→koniec), C_READSTR(3222), C_STAT(3355), C_VER(335C→2.5)
+- **Dyski**: DRV_RESET(3360), DRV_SELECT(3378)
+- **Pliki**: F_OPEN(344C), F_CLOSE(3490), F_SFIRST(3534), F_SNEXT(3553), F_DELETE(356C), F_READ(3598, 128B sektor), F_WRITE(35D8), F_MAKE(3708), F_RENAME(374E)
+- **System**: DRV_LOGVEC(3779), DRV_CUR(377E), F_DMA(3784), DRV_ALLOC(3795), F_ATTR(37B5), DRV_DPB(37CF), F_USERNUM(37D6), F_RNDREAD(37E7), F_RNDWRITE(37F8), F_SIZE(3804), F_RNDREC(384B), DRV_RESET2(385C)
+- **CPM-R**: FN38/39=stub(RET), FN40(37F3, write-through), FN41(387B, check space)
 
 ## 0x3E64-0x4430 — CCP: inicjalizacja + pętla główna (✗, zmapowane)
 - 0x3E64: CCP_INIT (skok z bootu)
