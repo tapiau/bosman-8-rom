@@ -256,26 +256,62 @@ RAM_P_TERMCPM	equ 0F203h
 ; =============================================================================
 
 ; --- Funkcje konsoli (0x31xx) ---
-; C_READ   (0x3134): czeka na znak, zapisuje do F05C, obsługuje ^prefix (0x5E)
-; C_WRITE  (0x3150): TAB→spacje co 8 kolumn, filtruje CR/LF/BS, wywołuje 0x319C
-; C_RAWIO  (0x31D2): reader input — czyta z SIO-A lub SIO-B wg IOBYTE
-; C_PUNCH  (0x1247): sprawdza IOBYTE, routuje na SIO-B lub port równoległy 0x98
-; C_LIST   (0x0FFB): drukarka — sprawdza flagę F26B bit 3, timeout 0x2500
-; C_DIRIO  (0x31D7): direct I/O — znak bez echa
-; GET_IOBYTE (0x3203): LD A,(0003h); RET
-; SET_IOBYTE (0x320B): LD (0003h),C; RET
-; C_WRITSTR (0x3212): pętla: pobiera znak z (HL), jeśli '$'→koniec, C_WRITE
-; C_READSTR (0x3222): czyta linię do bufora, edycja (BS, Ctrl+C)
-; C_STAT   (0x3355): sprawdza czy znak gotowy (SIO-A status)
-; C_VER    (0x335C): LD A, 025h; RET  → wersja CPM-R = 2.5
+; C_READ (0x3134): czeka na znak z 1-znakowym buforoem lookahead (F059)
+;   → jeśli bufor pusty: JP F209 (BIOS CONIN)
+;   → obsługuje ^prefix (0x5E) dla Ctrl-znaków
+;
+; C_WRITE (0x3150): TAB→spacje co 8 kolumn, filtruje CR/LF/BS, wywołuje 0x319C
+;
+; C_READSTR (0x3222) — buforowane wejście z edycją liniową:
+;   → Odczytuje max długość z bufora (F05A), inicjalizuje licznik
+;   → Sprawdza FB7D bit 6 — jeśli ustawiony, odczytuje istniejącą zawartość
+;   → Pętla główna: czeka na znak (0x31F8), obsługuje:
+;     CR (0Dh)/LF (0Ah): koniec linii
+;     BS (08h)/DEL (7Fh): backspace — usuwa ostatni znak
+;     Ctrl+E (05h): prawdopodobnie koniec linii (alternatywny)
+;     Inne: zapisuje do bufora, echo przez C_WRITE
+;   → Standard CP/M: bufor = [max][len][znaki...]
+;
+; C_RAWIO (0x31D2): reader input z IOBYTE
+;   → C=FF: sprawdź status (czy znak gotowy)
+;   → C=FE: pobierz znak (z bufora lub SIO)
+;   → Inne C: direct I/O
+;
+; C_PUNCH (0x1247): routuje na SIO-B lub port równoległy 0x98 wg IOBYTE
+; C_LIST (0x0FFB): drukarka — sprawdza F26B bit 3 (background printing)
+; C_DIRIO (0x31D7): direct console I/O
+; C_STAT (0x3355): status konsoli — czy znak gotowy
+; C_VER (0x335C): LD A, 025h; RET → wersja CPM-R = 2.5
 
 ; --- Funkcje dyskowe (0x33xx) ---
 ; DRV_RESET  (0x3360): resetuje wszystkie napędy, czyści bufory
 ; DRV_SELECT (0x3378): wybiera napęd (0=A..5=F), ustawia DPB
 
 ; --- Funkcje plikowe (0x34xx-0x37xx) ---
-; F_OPEN   (0x344C): szuka pliku w katalogu, kopiuje FCB, zwraca nr rekordu
-; F_CLOSE  (0x3490): zapisuje FCB do katalogu, aktualizuje allocation
+; F_OPEN — algorytm (0x344C):
+;   1. FCB_INIT (0x3D16) — wyczyść bajt w FCB
+;   2. BDOS_SETUP (0x3B33) — przygotuj operację, sprawdź napęd
+;   3. DIR_SEARCH (0x3942, C=0Fh) — przygotuj skanowanie katalogu
+;   4. DIR_NEXT (0x3D70) — znajdź pierwszy pasujący wpis
+;   5. Jeśli brak: RET Z — powrót z błędem
+;   6. DIR_SCAN (0x3CF0) — pobierz bufor katalogu
+;   7. LDIR — SKOPIUJ 32 BAJTY wpisu katalogowego do FCB użytkownika
+;   8. Odczytaj extent (+0C) i record count (+0F)
+;   9. Zwróć 0 (sukces) lub 80h (błąd) w FCB+3
+;   → Standard CP/M: FCB użytkownika zostaje wypełniony danymi z katalogu
+;
+; F_CLOSE — algorytm (0x3490):
+;   Zapisuje FCB z powrotem do katalogu, aktualizuje allocation vector.
+;   Podobny do F_OPEN ale w drugą stronę (FCB → katalog).
+;
+; DIR_SEARCH (0x3942) — przygotowanie skanowania katalogu:
+;   Wejście: C = tryb (0Fh=open, 11h=search first, 12h=search next)
+;   Ustawia flagi, zapisuje adres FCB, inicjalizuje bufor katalogu
+;
+; "Wszystkie (T/N) ?" (0x4525):
+;   Używane przy ERA *.* i podobnych operacjach z wildcardami
+;   Wypełnia bufor '?' (0x3F), czeka na 'T' lub 'N'
+;   'T' → wykonaj dla wszystkich, 'N' → anuluj
 ; F_SFIRST (0x3534): szuka pierwszego pasującego pliku (wildcards)
 ; F_SNEXT  (0x3553): szuka następnego (po F_SFIRST)
 ; F_DELETE (0x356C): usuwa plik, czyści wpisy katalogowe

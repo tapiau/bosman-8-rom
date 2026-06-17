@@ -12,6 +12,13 @@ Własny format kompresji plików. Wielofazowy pipeline:
 2. **^ciskanie** (0x53B2) — właściwa kompresja
 3. **skopiowany** (0x54A3) — plik wynikowy gotowy
 
+### Algorytm dekompresji (0x63C6)
+- Używa **LDDR** (0x6413) do kopiowania z overlapem — **LZ77/LZSS sliding window**
+- Bufory w górnym RAM: 0xA800, 0xAC00, 0xABFF
+- Literały: `bit 2,h; jr nz; ld a,(hl); inc hl` — kopiowanie bajt po bajcie
+- Słownik: pętla z `add hl,bc` i `LDDR` dla powtarzających się sekwencji
+- Rozmiar okna: ~1KB (0xA800-0xABFF)
+
 ### Walidacja (0x6200-0x6400)
 - Sprawdzenie nagłówka: "to nie jest 'ściśnięty' plik"
 - Weryfikacja tablicy dekodującej: "Błędna tablica dekodująca"
@@ -65,7 +72,23 @@ lub z linii poleceń CCP.
 - "Pozosta|o: $" — wyświetla wolne miejsce
 - Odczytuje dane z 0x8868 (nazwa?) i 0x8899 (liczniki?)
 - Wywołuje BDOS fn 1B (DRV_ALLOC) do sprawdzenia alokacji
-- Bloki 2KB (BSH=4), do 210 bloków = 420KB
+
+### DPB RAM-dysku (F2AB):
+- Bloki 2KB (BSH=4, BLM=0x0F, EXM=1)
+- DSM=209 → 210 bloków = **420KB** brutto (~408KB netto deklarowane)
+- DRM=127 → max 128 wpisów katalogu
+- SPT=240 (nieużywane — RAM-dysk nie ma fizycznej geometrii)
+
+### DPB stacji fizycznej (F2BF):
+- Bloki 1KB (BSH=3, BLM=0x07, EXM=0)
+- SPT=40, ~40 ścieżek → **200KB** (5.25" DS/DD? lub SS/DD)
+- DSM=199 → 200 bloków, DRM=63 → 64 wpisy katalogu
+
+### Zwolnienie banku RAM (0x554F):
+- ".jCzy zwolnić bank 1$" — pyta użytkownika (T/N)
+- 'T' → `LD A,FFh; CALL CONSOLE; CALL 0647Eh; JP 4E55h`
+- Zwalnia pamięć RAM-dysku, przywraca do puli systemowej
+- Używane gdy RAM-dysk nie jest potrzebny (więcej TPA)
 
 ## Drukowanie w tle — szczegóły (0x4989-0x4A40, 0x5740-0x5800)
 - Flaga w F26B bit 2: "Włączone drukowanie w tle"

@@ -110,16 +110,21 @@ zawartość ekranu w pamięci.
 
 | Adres | Opis |
 |-------|------|
-| `0x8800-0x8801` | Sygnatura 0x55AA (ciepły/zimny start — zachowanie bufora) |
+| `0x8800-0x8801` | Sygnatura 0x55AA (ciepły/zimny start) |
 | `0x8802-0x8803` | Atrybuty terminala (reverse, bold, underline) |
-| `0x8810` | Kursor X (kolumna) |
-| `0x8811` | Kursor Y (wiersz) |
+| `0x8804-0x8805` | Wskaźnik do danych SIO-B (używane przez V.24) |
+| `0x8806-0x8809` | Zapis HL/BC (DSP_MODE) |
+| `0x8810` | Kursor X (kolumna) — zerowany przy init |
+| `0x8811` | Kursor Y (wiersz) — ustawiany z napędu |
 | `0x8812` | Dodatkowe flagi stanu terminala |
-| `0x8814` | Aktywna strona ekranu w buforze |
-| `0x8816` | Konfiguracja terminala (IX-0x4E) |
-| `0x881A` | Wskaźnik bufora wejścia |
-| `0x881C-0x881D` | Bufor znaków konsoli |
+| `0x8814` | Aktywna strona / tryb |
+| `0x8816` | Rejestr konfiguracyjny (IX-0x4E) |
+| `0x8818` | Wskaźnik do nazwy pliku (parser CCP) |
+| `0x881A` | Wskaźnik bufora wejścia (linia komend) |
+| `0x881C-0x8825` | Bufor znaków konsoli + FCB |
+| `0x8840` | Bufor roboczy |
 | `0x8864` | Bazowy adres struktur terminala (IX) |
+| `0x88B8-0x88C0` | Bufor AUTOEXEC (BDOS fn 10) |
 
 Kod w 0x266C ("display attribute handler") obsługuje **sekwencje escape**
 terminala (kursor, atrybuty), a nie sprzętowy kontroler wyświetlacza.
@@ -129,19 +134,42 @@ terminala (kursor, atrybuty), a nie sprzętowy kontroler wyświetlacza.
 Dokładne numery portów do ustalenia — komunikaty wskazują
 na obsługę standardowego interfejsu Centronics.
 
+## Napędy — struktury DPH/DPB
+
+Trzy napędy skonfigurowane w ROM:
+
+| DPH | Adres | XLT | DPB | Rozmiar | Typ |
+|-----|-------|-----|-----|---------|-----|
+| 0 | F27B | 0 | F2AB | 420KB (2KB bloki) | RAM-dysk |
+| 1 | F28B | F2E7 | F2BF | 200KB (1KB bloki) | Floppy 5.25" |
+| 2 | F29B | 0 | F2D3 | 200KB (1KB bloki) | Floppy 5.25" |
+
+- **Współdzielony DIRBUF**: wszystkie 3 napędy używają F180 (standard CP/M)
+- **CSV/ALV**: osobne dla każdego napędu (checksum i allocation vectors)
+- **DPH 2** ma XLT = F2E7: tablica translacji sektorów 0..31 **bez skew** (sekwencyjna)
+  - 4MHz Z80 + WD1770 DMA jest wystarczająco szybki na sektory bez przeplotu
+- **DPH 1 i 3** nie mają XLT (XLT=0)
+
 ## Mapa pamięci
 
-| Zakres adresów | Zawartość | Uwagi |
-|----------------|-----------|-------|
-| `0x0000-0x00FF` | Page Zero | Wektory, IOBYTE, parametry |
-| `0x0100-0x7FFF` | TPA (ok. 32KB) | Programy użytkownika |
-| `0x8000-0xEFFF` | RAM-dysk / banki | 408 KB RAM-dysku |
-| `0xF000-0xF1FF` | Trampoliny + bufory | Kopiowane z ROM podczas bootu |
-| `0xF200-0xF538` | BIOS runtime | Skopiowane z ROM 0x2D00 |
-| `0xF300-0xFFFF` | Stos i zmienne systemowe | Stack top = 0xF0B8 |
+512 KB RAM, zarządzane przez bank switching (porty 0x04, 0x05, 0x06):
 
-ROM (0x0000-0x7FFF) jest mapowany przy starcie, następnie przełączany
-na RAM przez procedurę `SWITCH_TO_RAM` (0x044F).
+| Zakres | Zawartość |
+|--------|-----------|
+| `0x0000-0x00FF` | Page Zero (wektory, IOBYTE, parametry) |
+| `0x0100-0xBFFF`? | TPA — do 60 KB (z bankowaniem?) |
+| `0x8000-0xEFFF` | Okno RAM-dysku — 408 KB przez bank switching |
+| `0xF000-0xF1FF` | Trampoliny + bufory systemowe |
+| `0xF200-0xF538` | BIOS runtime (skopiowane z ROM) |
+| `0xF300-0xFFFF` | Stos (top=0xF0B8), zmienne systemowe |
+
+### Mechanizm bank switching (F30F)
+- Porty: 0x04, 0x05, 0x06 (3 bity adresu → 8 kombinacji)
+- 512KB / 32KB = 16 banków (4 bity?) — prawdopodobnie podział na strefy
+- `RRCA / RL C / OUT (C),A` — rozkłada bity A na porty 0x04-0x06
+- A=FF: specjalny tryb — odczytuje F26B dla domyślnego banku
+- BIOS_SELMEM (F3DC): wybór banku dla RAM-dysku
+- BIOS_SETBNK (F3E6): ustawienie numeru banku
 
 ## CPU i timing
 

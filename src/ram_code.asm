@@ -105,6 +105,34 @@ RAM_PAGE0_RESET:
 ; =============================================================================
 ; Etykiety
 ; =============================================================================
+; =============================================================================
+; Implementacje BIOS — szczegóły
+; =============================================================================
+
+; BIOS_CONIN (F3AB): pętla czekająca na znak z SIO-A
+;   CALL CON_STAT; JR Z, $-3; IN A,(080h); RET
+
+; BIOS_CONST (F3B3): sprawdzenie czy znak gotowy
+;   IN A,(082h); AND 01h; RET Z; LD A,FFh; RET
+
+; BIOS_CONOUT (F3CE): wyjście znaku na SIO-A
+;   Czeka na Tx empty (F3C1), potem OUT (080h),A
+
+; BIOS_SETTRK (F382): LD A,C; LD (F34Eh),A; RET
+; BIOS_SETSEC (F387): LD A,C; LD (F350h),A; RET
+; BIOS_SETDMA (F38C): LD L,C; LD H,B; LD (F351h),HL; RET
+; BIOS_SECTRN (F392): tłumaczenie numeru sektora (ADD HL,DE)
+
+; BIOS_HOME (F37D): powrót na ścieżkę 0 (RESTORE przez WD1770)
+; BIOS_SELDSK (F371): wybór napędu, zwraca adres DPH
+; BIOS_READ (F3A1): odczyt sektora (WD1770 local lub SIO-B remote)
+; BIOS_WRITE (F39C): zapis sektora (WD1770 local lub SIO-B remote)
+
+; Dane konfiguracyjne SIO-B przy F360 (ROM 0x2E60):
+;   F360: E1 4C EA 0D 00 — WR3=E1h, WR4=4Ch, WR5=EAh, ctr2=13 → 9615 baud
+;   F365: E1 4C EA 0D 00 — identyczna (LO config)
+;   F36A: E1 4C EA 0D 00 — identyczna (default)
+
 BIOS_INIT	equ 0F376h
 BIOS_CONST	equ 0F3B3h
 BIOS_CONIN_IMPL	equ 0F3ABh
