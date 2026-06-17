@@ -37,7 +37,9 @@ rom/
     ├── bdos.asm
     ├── bios_console.asm
     ├── bios_disk.asm
+    ├── bios_devices.asm
     ├── bios_display.asm
+    ├── bios_fdc.asm
     ├── bios_serial.asm
     ├── ram_code.asm
     ├── data_tables.asm

@@ -147,6 +147,14 @@ Własny format kompresji plików CPM-R:
 - Działa od razu po boot, bez dodatkowej konfiguracji
 - Trzy sloty (F360 LO, F365 PO, F36A default) — wszystkie domyślnie identyczne
 
-### CCP — tablica komend (0x4430)
-- DIR, ERA, TYPE, SAVE, REN, USER, DEBUG — 7 wbudowanych komend
-- DEBUG prawdopodobnie wchodzi do menu konfiguracji/narzędzi
+### CCP — Command Processor (0x3E64-0x4A00)
+- **CCP_INIT** (0x3E64): LD SP,F0B8h; LD IX,8864h; init display; sprawdza FB7E
+- **Parser znaków** (0x4072): LF(0Ah)=ignoruj, CR(0Dh)=wykonaj, Ctrl+Z(1Ah)=koniec,
+  $(24h)=string, ^(5Eh)=prefix, spacja=separator
+- **Ładowanie .COM** (0x400E-0x406B): otwiera plik, ładuje do TPA (0x0100),
+  ustawia stos, skacze do 0x0100
+- **Tablica komend** (0x442F): DIR, ERA, TYPE, SAVE, REN, USER, DEBUG
+  Format: 5 bajtów nazwa + 3 bajty adres handlera
+- **AUTOEXEC** (0x473D): sprawdza B:AUTOEXEC, wykonuje przez BDOS fn 10
+- Komunikaty: "Program 0100-$+", ".jPolecenie za długie", "Brak pliku",
+  "Plik istnieje", "Błędne polecenie - (ESC)"
