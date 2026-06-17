@@ -256,7 +256,39 @@ RAM_P_TERMCPM	equ 0F203h
 ; =============================================================================
 
 ; --- Funkcje konsoli (0x31xx) ---
-; C_READ (0x3134): czeka na znak z 1-znakowym buforoem lookahead (F059)
+; === IMPLEMENTACJE FUNKCJI BDOS ===
+
+; C_READ (0x3134): czeka na znak, echo (^prefix dla Ctrl, TAB→spacje)
+;   → WAIT_CHAR(31F8) → CHECK_CTRL(3163) → zapisz w F05C
+;   → Jeśli printable: echo przez CHAR_OUT(319C)
+;   → Jeśli control: echo '^' + znak+0x40 (np. Ctrl+C → ^C)
+;   → TAB (09h): expanduje do spacji (F058 mod 8)
+;
+; C_WRITE (0x3150): wyjście znaku z obsługą TAB
+;   → TAB→spacje (co 8 kolumn, F058), CR/LF/BS/SPC → bezpośrednio
+;   → CHAR_OUT(319C): sprawdza F056, woła CONOUT(F20C)
+;   → Jeśli FB7D bit 7: dodatkowo C_LIST(0FFB) — echo na drukarkę!
+;
+; C_RAWIO (0x31D2): reader I/O wg IOBYTE
+;   → CALL READER_INPUT(12C1)
+;
+; C_DIRIO (0x31D7): direct console I/O (bez echa)
+;   → C=FF: status (CHECK_BUF → 0 lub FF)
+;   → C=FE: input (CHECK_BUF, WAIT_CHAR)
+;   → Inne C: direct output (JP F20C — CONOUT)
+;
+; C_READSTR (0x3222): buforowane wejście z edycją liniową
+;   → Odczytuje max długość z bufora, sprawdza FB7D bit 6 (pre-fill)
+;   → Edycja: BS(08h)/DEL(7Fh)=backspace, Ctrl+E(05h)=koniec fizyczny
+;     Ctrl+P(10h)=toggle drukarki (FB7D bit 7), Ctrl+X(18h)=anuluj linię
+;     Ctrl+U(15h)=usuń linię, CR/LF=koniec
+;   → Bufor: [max_len][curr_len][dane...]
+;
+; C_STAT (0x3355): CALL CHECK_CONSOLE(3172); LD (F05Ch),A; RET
+;   → A=0 (brak znaku) lub A=FF (znak gotowy)
+;
+; C_VER (0x335C): LD A,25h; LD (F05Ch),A; RET
+;   → 0x25 = BCD 2.5 → CPM-R version 2.5!
 ;   → jeśli bufor pusty: JP F209 (BIOS CONIN)
 ;   → obsługuje ^prefix (0x5E) dla Ctrl-znaków
 ;
@@ -284,10 +316,18 @@ RAM_P_TERMCPM	equ 0F203h
 ; C_VER (0x335C): LD A, 025h; RET → wersja CPM-R = 2.5
 
 ; --- Funkcje dyskowe (0x33xx) ---
-; DRV_RESET  (0x3360): resetuje wszystkie napędy, czyści bufory
-; DRV_SELECT (0x3378): wybiera napęd (0=A..5=F), ustawia DPB
+; DRV_RESET (0x3360): zeruje F010/F012, F04F=0, DMA=F014=0x0080
+;   → fall-through do DRV_SELECT (ten sam napęd=RET, inny=flush+init)
+; DRV_SELECT (0x3378): sprawdza F037 vs F04F(BDOS) i F34D(BIOS)
+;   → ten sam BDOS+BIOS: RET, inny BIOS: JP DISK_DISPATCH(0476)
 
 ; --- Funkcje plikowe (0x34xx-0x37xx) ---
+; F_CLOSE (0x3490): zapisuje 16 bajtów FCB z powrotem do katalogu
+;   → BDOS_SETUP, sprawdza R/O, DIR_SEARCH(C=0Fh), DIR_NEXT
+;   → kopiuje FCB+16 do wpisu katalogowego (alokacja, extent, rekordy)
+; F_DELETE (0x356C): ★ LD (HL),0E5h — marker usuniętego pliku CP/M!
+;   → DIR_SEARCH(C=0Ch), pętla DIR_NEXT, DIR_SCAN, WRITE_DIR, UPDATE_ALLOC
+;   → zwraca liczbę usuniętych wpisów (F036 → F052)
 ; F_OPEN — algorytm (0x344C):
 ;   1. FCB_INIT (0x3D16) — wyczyść bajt w FCB
 ;   2. BDOS_SETUP (0x3B33) — przygotuj operację, sprawdź napęd
