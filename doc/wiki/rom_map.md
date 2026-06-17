@@ -102,19 +102,22 @@ Stan na 2026-06-17. Pokrycie: ~12% szczegółowo, ~88% zmapowane.
 - 0x473D: "B:AUTOEXEC" + handler (BDOS fn 10, wykonanie)
 - Atrybuty plików, R/O, kasowanie
 
-## 0x4A00-0x5600 — Narzędzia systemowe (✗)
-- Kompresja/dekompresja ("ściśnięty plik")
-- Weryfikacja sum kontrolnych
+## 0x4A00-0x5600 — Narzędzia systemowe (✗, zmapowane)
+- Drukowanie w tle: flaga F26B bit 2, plik LO#.PRN
+- Archiwizator: "ściśnięty plik" — własny format kompresji CPM-R
+  - Walidacja nagłówka, tablica dekodująca
+  - Fazy: analiza → ^ciskanie → skopiowany
 - Kopiowanie plików
-- Drukowanie w tle
 - RI (czytanie z interfejsu szeregowego)
+- Konfiguracja banków RAM
 
-## 0x5600-0x7000 — RAM-dysk + archiwizator + narzędzia (✗)
-- Zarządzanie RAM-dyskiem
-- Kompresja (ciąg dalszy)
-- Zmiana nazwy, klucz, kopia
-- Użytkownicy i uprawnienia
-- Operacje na napędach
+## 0x5600-0x7000 — RAM-dysk + archiwizator c.d. + narzędzia (✗, zmapowane)
+- Zarządzanie RAM-dyskiem (miejsce, pliki)
+- Kompresja/dekompresja — ciąg dalszy (0x6000-0x6700)
+- Zmiana nazwy pliku, klucz (szyfrowanie?), kopia
+- Użytkownicy i numery użytkowników
+- Operacje na napędach (zwalnianie D/E/F)
+- "kopia na plik" — screen capture do pliku
 
 ## 0x7000-0x7FE6 — Padding (· puste)
 - Wypełnione 0x00

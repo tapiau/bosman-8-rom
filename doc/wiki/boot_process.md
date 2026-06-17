@@ -26,6 +26,7 @@
   - 2 000 000 / 20 = **100 000 bod** (synchronicznie, nietypowa prędkość dla terminala)
 - **8253 licznik 0** (port 0x84): wartość 0x9999 (timing dla FDC)
 - **SIO kanał A** (port 0x80): odczyt bufora Rx
+- **SIO-B init** (0x1487): ładuje 5 bajtów z RAM F360 (WR3=E1h, WR4=4Ch, WR5=EAh) + 8253 counter 2 = 13 → 9615 baud async
 
 ### Faza 5: Inicjalizacja IOBYTE i Page Zero
 - IOBYTE (`0x0003`) = `0xD5` (konfiguracja urządzeń CP/M)

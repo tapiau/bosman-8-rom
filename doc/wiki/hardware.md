@@ -24,8 +24,17 @@ Obsługuje parametry: parzystość, bity stopu, dzielnik, DTR, RTS, prędkość 
 
 ### 8253 Programmable Interval Timer — porty 0x84-0x87
 
-Trzykanałowy licznik/timer, używany do generowania częstotliwości
-(Baud rate dla SIO, timing dla FDC, odświeżanie wyświetlacza?).
+Trzykanałowy licznik/timer taktowany 2 MHz.
+
+| Licznik | Port | Wartość | Tryb | Przeznaczenie |
+|---------|------|---------|------|---------------|
+| 0 | 0x84 | 0x9999 (39321) | Mode 2, BCD | Timing dla FDC |
+| 1 | 0x85 | 20 | Mode 3, bin | SIO-A clock: 2MHz/20 = 100 kHz (terminal synchr.) |
+| 2 | 0x86 | 13 (domyślnie) | Mode 3, bin | **SIO-B clock**: 2MHz/13 = 153.8 kHz (→ ~9600 baud async) |
+
+Counter 1 (SIO-A, terminal): 2 000 000 / 20 = 100 000 Hz — tryb synchroniczny.\
+Counter 2 (SIO-B, łącze międzykomputerowe/PUNCH): 2 000 000 / 13 / 16 = ~9615 baud — tryb asynchroniczny, x16.\
+Wartość countera 2 jest konfigurowalna przez programy V.24 LO/PO (przechowywana w RAM F360+).
 
 | Port | Kierunek | Opis |
 |------|----------|------|

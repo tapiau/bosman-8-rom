@@ -107,4 +107,46 @@ Zweryfikowana inicjalizacja 8253 (port 0x87):
 - [x] ~~Funkcje CPM-R BDOS 38-41~~ — FN38/39 to stuby (RET), FN40 ustawia flagę+write, FN41 sprawdza miejsce na dysku
 - [x] ~~Domyślna prędkość V.24~~ — 9600 baud, counter 8253=20, F_CLK≈192kHz
 - [x] ~~Struktura menu konfiguracyjnego V.24~~ — 10 pól (parzystość→bity→dzielnik→DTR→odbiornik→nadajnik→auto→DTR→RTS→prędkość)
-- [x] ~~Mapa luki 0x3136-0x7000~~ — BDOS+CCP+archiwizator+drukarka w tle+RI+RAM-dysk+narzędzia
+## 2026-06-17 — Analiza nieudokumentowanych obszarów
+
+### Archiwizator/kompresja (0x4E00-0x5200, 0x6000-0x6700)
+Własny format kompresji plików CPM-R:
+- "ściśnięty plik" — nazwa skompresowanego pliku
+- Walidacja nagłówka: "to nie jest 'ściśnięty' plik" przy błędzie
+- "Błędna tablica dekodująca" — uszkodzone dane słownika
+- "Plik jest pusty" — plik wejściowy bez danych
+- "Brakuje danych na pliku" — niekompletny plik
+- Fazy: "analiza" → "^ciskanie" (kompresja) / dekompresja
+- "skopiowany" — sukces
+- ".jrandom$" — możliwe że używa randomizacji/entropii
+- Kod głównie w 0x53E0-0x5450 (dekompresja) i 0x6200-0x6400 (walidacja)
+
+### Kopia ekranu (0x1CC8)
+- Menu "Kopia ekranu" w obszarze konfiguracji urządzeń
+- Przechwytuje zawartość bufora terminala (0x8800+) do pliku
+- "Kopiowanie ekranu zakończone" — sukces
+- " granice obrazu" — możliwość zmiany zakresu kopiowania
+- "kopia na plik :" — wybór pliku docelowego
+- Kod w 0x1CC8-0x1DCF
+
+### Drukowanie w tle (0x4989-0x4A40, 0x5740-0x5800)
+- "Włączone drukowanie w tle" — flaga w F26B bit 2
+- Plik LO#.PRN — bufor wydruku
+- ".jZ = zakończ plik LO#.PRN" — zamknięcie bufora
+- "Drukarka wyłączona" — status
+- Menu konfiguracji: "Interfejs drukarki" (0x22F4)
+- Opcje: TAB do drukarki, zerowanie bitu, znaki `@^~]}{[|\`
+- Prawdopodobnie działa jako TSR (Terminate and Stay Resident) pod CP/M
+
+### SIO-B — użycie przez PUNCH
+- `PIP PUN:=PLIK.TXT` wysyła dane przez SIO-B
+- C_PUNCH (0x1247) → SIO-B async
+- **8253 counter 2 = 13** (domyślnie): 2MHz/13/16 = **9615 baud** x16 async
+- Konfiguracja w RAM F360/F365/F36A: WR3=E1h, WR4=4Ch, WR5=EAh, ctr2=13
+- SIOB_INIT (0x1487): ładuje 5 bajtów z (HL) do SIO-B + 8253 ctr2
+- Działa od razu po boot, bez dodatkowej konfiguracji
+- Trzy sloty (F360 LO, F365 PO, F36A default) — wszystkie domyślnie identyczne
+
+### CCP — tablica komend (0x4430)
+- DIR, ERA, TYPE, SAVE, REN, USER, DEBUG — 7 wbudowanych komend
+- DEBUG prawdopodobnie wchodzi do menu konfiguracji/narzędzi

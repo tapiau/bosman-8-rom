@@ -114,9 +114,13 @@ WARM_BOOT:
 	ld a,099h		; 02AE  starszy bajt = 0x99 → wartość 0x9999
 	out (084h),a		; 02B0
 
-	; Wyświetl znak zachęty / logo systemu
-	ld hl,SYS_BANNER	; 02B2  F360h (RAM — banner systemu)
-	call RST3_DISPLAY	; 02B5  wyświetl string
+	; --- SIO-B init: załaduj konfigurację z RAM do SIO-B + 8253 counter 2 ---
+	; Procedura 0x1487 (SIOB_INIT) czyta 5 bajtów z (HL):
+	;   +0: WR3, +1: WR4, +2: WR5, +3+4: 8253 counter 2 (little-endian)
+	; Domyślnie: WR3=E1h, WR4=4Ch (x16 async, 2 stop), WR5=EAh, ctr2=13
+	; → 2MHz/13/16 = 9615 baud (~9600)
+	ld hl,SIOB_CFG_1	; 02B2  F360h — domyślna konfiguracja SIO-B
+	call SIOB_INIT		; 02B5  załaduj do SIO-B + 8253 ctr2
 
 	; --- Ustawienia CP/M Page Zero ---
 	ld a,0D5h		; 02B8  IOBYTE = D5h
@@ -469,7 +473,10 @@ RAM_RST7	equ 0F272h
 DELAY		equ 02C67h	; procedura opóźnienia
 STR_OUT		equ 02CCFh	; wyjście stringu
 CONSOLE		equ 00E80h	; BIOS konsola
-RST3_DISPLAY	equ 01487h	; RST3 — wyświetlanie
+SIOB_INIT	equ 01487h	; SIO-B + 8253 ctr2 init (5 bajtów z HL)
+SIOB_CFG_1	equ 0F360h	; domyślna konfiguracja SIO-B (WR3/WR4/WR5/ctr2)
+SIOB_CFG_2	equ 0F365h	; druga konfiguracja SIO-B
+SIOB_CFG_3	equ 0F36Ah	; trzecia konfiguracja SIO-B
 FN_F30F		equ 0F30Fh	; funkcja RAM (bank select)
 FN_F447		equ 0F447h	; funkcja RAM (status banku)
 FN_F458		equ 0F458h	; funkcja RAM (odczyt)
