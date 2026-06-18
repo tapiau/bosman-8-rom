@@ -166,8 +166,10 @@ Własny format kompresji plików CPM-R:
   $(24h)=string, ^(5Eh)=prefix, spacja=separator
 - **Ładowanie .COM** (0x400E-0x406B): otwiera plik, ładuje do TPA (0x0100),
   ustawia stos, skacze do 0x0100
-- **Tablica komend** (0x442F): DIR, ERA, TYPE, SAVE, REN, USER, DEBUG
-  Format: 5 bajtów nazwa + 3 bajty adres handlera
+- **Tablica komend** (0x4432): ★ 8 komend (nie 7!): DIR, ERA, TYPE, SAVE, REN, USER, DEBUG, D
+  Format: 5 bajtów nazwa + 3 bajty handlera
+  - **D** (0x446A): Disk/File manager — wbudowane narzędzie operacji na plikach!
+    Handler: 0x446C, parsuje argumenty, używa wildcardów (0x3F='?')
 - **AUTOEXEC** (0x473D): sprawdza B:AUTOEXEC, wykonuje przez BDOS fn 10
 - Komunikaty: "Program 0100-$+", ".jPolecenie za długie", "Brak pliku",
   "Plik istnieje", "Błędne polecenie - (ESC)"

@@ -30,6 +30,7 @@ rom/
 │   ├── hardware.md
 │   ├── disk_interlink.md
 │   ├── rom_map.md
+│   ├── command_d.md
 │   ├── system_tools.md
 │   └── emulation.md
 └── src/                                       # podzielony kod asm

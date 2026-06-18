@@ -263,23 +263,48 @@ SKIP_SPACES:
 ; =============================================================================
 ; Tablica wbudowanych komend CCP (0x442F)
 ; =============================================================================
-; 7 komend, każda: 5 bajtów nazwy + 3 bajty adresu handlera
+; 8 komend wbudowanych, format: [nazwa 5B] [handler 3B]
+; Kod dispatchera: 0x442D-0x4431 (SUB A; LD SP,HL; JP 4273h)
+; Tablica od 0x4432:
 CCP_CMD_TABLE:
-	DEFB 'sBDIR'		; 442D  prefix 'sB'
-	DEFB 'DIR  '		; 442F  DIR — lista plików
+	DEFB 'DIR  '		; 4432  DIR — lista plików
 	DEFB 052h,020h,020h	; handler flags
-	DEFB 'ERA  '		; 4437  ERA — usuń plik
+	DEFB 'ERA  '		; 443A  ERA — usuń plik
 	DEFB 054h,059h,050h	; handler flags
-	DEFB 'TYPE '		; 443F  TYPE — wyświetl plik
+	DEFB 'TYPE '		; 4442  TYPE — wyświetl plik
 	DEFB 045h,020h,052h	; handler flags
-	DEFB 'SAVE '		; 4447  SAVE — zapisz pamięć
+	DEFB 'SAVE '		; 444A  SAVE — zapisz pamięć
 	DEFB 045h,04Eh,020h	; handler flags
-	DEFB 'REN  '		; 444F  REN — zmień nazwę
+	DEFB 'REN  '		; 4452  REN — zmień nazwę
 	DEFB 055h,053h,045h	; handler flags
-	DEFB 'USER '		; 4457  USER — zmień użytkownika
+	DEFB 'USER '		; 445A  USER — zmień użytkownika
 	DEFB 044h,045h,042h	; handler flags
-	DEFB 'DEBUG'		; 445F  DEBUG — narzędzia/menu
+	DEFB 'DEBUG'		; 4462  DEBUG — narzędzia diagnostyczne
 	DEFB 044h,020h,020h	; handler flags
+	DEFB 'D    '		; 446A  ★ D — Directory/File lister
+	DEFB 06Ch,044h,01Ah	; handler → 0x446C
+
+; =============================================================================
+; Komenda "D" — Directory Lister (0x446C-0x4507)
+; =============================================================================
+; Wbudowane narzędzie do listowania plików.
+; Wyświetla nazwy plików w kolumnach (4 na wiersz) z literą napędu.
+;
+; Użycie: D [wzorzec] — np. "D *.COM" lub samo "D" (wszystkie pliki)
+;
+; Algorytm:
+;   1. PARSE_ARGS (430A) — parsuj argumenty
+;   2. Jeśli brak argumentów (spacja): SHOW_HELP (550E) — wypełnij '?' wildcard
+;   3. Pętla: 64F9h (search first/next), 8813h (atrybuty)
+;   4. Wyświetl: litera napędu (A:), dwukropek, nazwa.kropka.rozszerzenie
+;   5. Grupuj po 4 pliki na wiersz (licznik E mod 4)
+;   6. 47B0h — następny plik; 64E9h — kontynuuj search
+;   7. Koniec: komunikat przez 450Ah, powrót do CCP (3F37h)
+;
+; Format wyjścia: A: NAZWA   TYP  B: PLIK    COM  ...
+; (4 kolumny, nazwa max 8+3 znaków, pozycja 9 = kropka)
+;
+; SHOW_HELP (550E): wypełnia 11 bajtów '?' (0x3F) — wildcard dla wszystkich
 
 ; =============================================================================
 ; AUTOEXEC handler (0x473D-0x4776)
