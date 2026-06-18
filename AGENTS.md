@@ -106,46 +106,29 @@ Where `sio_divider` is 1, 16, 32, or 64 (set in SIO WR4 bits 7-6).
 
 **Default**: ctr2=13, divider=x16 → 2MHz/13/16 = **9615 baud** (~9600).
 
-#### Speed Table
+#### Speed Table (×16 divider only, ROM default)
 
-| Baud | ctr2 | Divider | Actual | Error |
-|------|------|---------|--------|-------|
-| **110** | 1136 | ×16 | 110.0 | 0.0% |
-| **150** | 833 | ×16 | 150.1 | 0.1% |
-| **300** | 417 | ×16 | 299.9 | 0.0% |
-| **600** | 208 | ×16 | 600.2 | 0.0% |
-| **1200** | 104 | ×16 | 1201.9 | 0.2% |
-| **2400** | 52 | ×16 | 2403.8 | 0.2% |
-| **4800** | 26 | ×16 | 4807.7 | 0.2% |
-| **9600** | **13** | ×16 | **9615.4** | 0.2% |
-| **19200** | 7 | ×16 | 17857.1 | 7.0% ⚠ |
-| **19200** | 13 | ×8¹ | 19230.8 | 0.2% |
-| **38400** | 3 | ×16 | 41666.7 | 8.5% ⚠ |
-| **38400** | 7 | ×8¹ | 35714.3 | 7.0% ⚠ |
-| **38400** | 13 | ×4¹ | 38461.5 | 0.2% |
-| **57600** | 2 | ×16 | 62500.0 | 8.5% ⚠ |
-| **115200** | 1 | ×16 | 125000.0 | 8.5% ⚠ |
-| **115200** | 2 | ×8¹ | 125000.0 | 8.5% ⚠ |
+```
+baud = 2_000_000 / ctr2 / 16
+```
 
-¹ Requires modifying WR4 (SIO clock mode bits). Standard ROM uses ×16 only.
-⚠ Error >3% — may not work reliably with all UARTs.
+| Baud | ctr2 | Actual | Error |
+|------|------|--------|-------|
+| 110 | 1136 | 110 | 0.0% |
+| 150 | 833 | 150 | 0.0% |
+| 300 | 417 | 300 | 0.1% |
+| 600 | 208 | 601 | 0.2% |
+| 1200 | 104 | 1202 | 0.2% |
+| 2400 | 52 | 2404 | 0.2% |
+| 4800 | 26 | 4808 | 0.2% |
+| **9600** | **13** | **9615** | **0.2%** ← default |
+| 19200 | 7 | 17857 | 7.0% ⚠ |
+| 38400 | 3 | 41667 | 8.5% ⚠ |
+| 57600 | 2 | 62500 | 8.5% ⚠ |
+| 115200 | 1 | 125000 | 8.5% ⚠ |
 
-#### Recommended Configurations
-
-For standard PC UART compatibility (≤3% error):
-
-| Baud | ctr2 | Divider | Actual | Error |
-|------|------|---------|--------|-------|
-| 300 | 417 | ×16 | 299.9 | 0.0% |
-| 600 | 208 | ×16 | 600.2 | 0.0% |
-| 1200 | 104 | ×16 | 1201.9 | 0.2% |
-| 2400 | 52 | ×16 | 2403.8 | 0.2% |
-| 4800 | 26 | ×16 | 4807.7 | 0.2% |
-| **9600** | **13** | ×16 | **9615.4** | **0.2%** ← default |
-| 19200 | 13 | ×8¹ | 19230.8 | 0.2% |
-| 38400 | 13 | ×4¹ | 38461.5 | 0.2% |
-
-¹ Requires modifying WR4. Standard ROM default is ×16 only.
+⚠ Error >3% — unreliable with standard PC UARTs. Speeds ≥19200 require
+changing WR4 from ×16 to ×1 for usable error rates.
 
 #### SIO-B Config Structure (5 bytes at F360h/F365h/F36Ah)
 
@@ -264,6 +247,97 @@ E1h  — WR3: 8-bit, auto enable, Rx enable
 4Ch  — WR4: x16 clock, 2 stop bits, no parity (async)
 EAh  — WR5: DTR=1, Tx 8-bit, Tx enable, RTS=1
 0D 00 — Counter 2 = 13 → 2MHz/13/16 = 9615 baud
+```
+
+## Writing .COM Programs for Bosman-8
+
+### Minimal "Hello World" template
+```asm
+    org 0100h              ; CP/M TPA start
+
+    ld de, msg
+    ld c, 09h              ; BDOS fn 09 = C_WRITSTR
+    call 0005h
+    ret                    ; return to CCP
+
+msg:
+    defb 'Hello, Bosman-8!$'
+    end
+```
+
+### Calling ROM routines from .COM
+ROM routines are always accessible (ROM is mapped during BDOS calls via
+bank switching). Addresses above 8000h may require bank switching.
+
+Safe to call from .COM:
+- `CALL 0005h` — BDOS (always available)
+- `CALL 2CD9h` — CHAR_OUT (requires terminal init)
+- `CALL 2CCFh` — STR_OUT (0x80-terminated)
+- `CALL 2C67h` — DELAY (A ms)
+
+Require bank switching setup (use BANK_READ/BANK_WRITE):
+- `CALL F30Fh` — BANK_SWITCH (need to restore before returning to CCP)
+
+### Memory banks (512KB RAM)
+```
+Bank 0: 0000-7FFF (TPA, Page Zero)
+Bank 1-?: 8000-FFFF (RAM disk, switched via ports 04h/05h/06h)
+```
+
+To access high memory from a .COM program:
+```asm
+    ld a, bank_number
+    call BANK_SWITCH       ; F30Fh
+    ; now 8000-FFFF maps to selected bank
+    ; ... do work ...
+    ld a, 0FFh
+    call BANK_SWITCH       ; restore default
+```
+
+### File I/O via BDOS (standard CP/M pattern)
+```asm
+    ; Open file
+    ld de, fcb
+    ld c, 0Fh              ; F_OPEN
+    call 0005h
+    inc a                  ; FF=error
+    jr z, error
+
+    ; Set DMA address
+    ld de, buffer          ; 128-byte buffer
+    ld c, 1Ah              ; F_DMA
+    call 0005h
+
+    ; Read 128-byte sector
+    ld de, fcb
+    ld c, 14h              ; F_READ
+    call 0005h
+    or a                   ; 0=OK
+    jr nz, eof
+
+fcb:
+    defb 0                 ; drive (0=default)
+    defb 'FILENAME'        ; 8 chars
+    defb 'TXT'             ; 3 chars
+    defs 24, 0             ; rest of FCB
+
+buffer:
+    defs 128
+```
+
+### Printing to console (escape sequences)
+Terminal uses ESC sequences for cursor control:
+```asm
+    ; Clear screen
+    ld c, 1Bh              ; ESC
+    call CHAR_OUT
+    ld c, 'E'              ; clear screen command
+    call CHAR_OUT
+
+    ; Move cursor to (row, col)
+    ld h, 10               ; row 10
+    ld l, 20               ; col 20
+    call 2BF4h             ; CURSOR_SET: ESC = Y+32 X+32
 ```
 
 ## Programming Tips
