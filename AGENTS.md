@@ -93,6 +93,76 @@ All standard CP/M 2.2 functions + CPM-R extensions:
 +8:    max value
 ```
 
+### 8253 Baud Rate Configuration (SIO-B)
+
+8253 counter 2 (port 86h) provides clock for SIO-B. The SIO's internal
+divider (WR4 bits 7-6) further divides this. Formula:
+
+```
+baud = 2_000_000 / ctr2 / sio_divider
+```
+
+Where `sio_divider` is 1, 16, 32, or 64 (set in SIO WR4 bits 7-6).
+
+**Default**: ctr2=13, divider=x16 → 2MHz/13/16 = **9615 baud** (~9600).
+
+#### Speed Table
+
+| Baud | ctr2 | Divider | Actual | Error |
+|------|------|---------|--------|-------|
+| **110** | 1136 | ×16 | 110.0 | 0.0% |
+| **150** | 833 | ×16 | 150.1 | 0.1% |
+| **300** | 417 | ×16 | 299.9 | 0.0% |
+| **600** | 208 | ×16 | 600.2 | 0.0% |
+| **1200** | 104 | ×16 | 1201.9 | 0.2% |
+| **2400** | 52 | ×16 | 2403.8 | 0.2% |
+| **4800** | 26 | ×16 | 4807.7 | 0.2% |
+| **9600** | **13** | ×16 | **9615.4** | 0.2% |
+| **19200** | 7 | ×16 | 17857.1 | 7.0% ⚠ |
+| **19200** | 13 | ×8¹ | 19230.8 | 0.2% |
+| **38400** | 3 | ×16 | 41666.7 | 8.5% ⚠ |
+| **38400** | 7 | ×8¹ | 35714.3 | 7.0% ⚠ |
+| **38400** | 13 | ×4¹ | 38461.5 | 0.2% |
+| **57600** | 2 | ×16 | 62500.0 | 8.5% ⚠ |
+| **115200** | 1 | ×16 | 125000.0 | 8.5% ⚠ |
+| **115200** | 2 | ×8¹ | 125000.0 | 8.5% ⚠ |
+
+¹ Requires modifying WR4 (SIO clock mode bits). Standard ROM uses ×16 only.
+⚠ Error >3% — may not work reliably with all UARTs.
+
+#### Recommended Configurations
+
+For standard PC UART compatibility (≤3% error):
+
+| Baud | ctr2 | Divider | Actual | Error |
+|------|------|---------|--------|-------|
+| 300 | 417 | ×16 | 299.9 | 0.0% |
+| 600 | 208 | ×16 | 600.2 | 0.0% |
+| 1200 | 104 | ×16 | 1201.9 | 0.2% |
+| 2400 | 52 | ×16 | 2403.8 | 0.2% |
+| 4800 | 26 | ×16 | 4807.7 | 0.2% |
+| **9600** | **13** | ×16 | **9615.4** | **0.2%** ← default |
+| 19200 | 13 | ×8¹ | 19230.8 | 0.2% |
+| 38400 | 13 | ×4¹ | 38461.5 | 0.2% |
+
+¹ Requires modifying WR4. Standard ROM default is ×16 only.
+
+#### SIO-B Config Structure (5 bytes at F360h/F365h/F36Ah)
+
+```
+Offset  Register   Default  Description
++0      WR3         E1h     8-bit, auto enable, Rx enable
++1      WR4         4Ch     x16 clock (bits 7-6=01), 2 stop bits, no parity
++2      WR5         EAh     DTR=1, Tx 8-bit, Tx enable, RTS=1
++3,+4   8253 ctr2   000Dh   13 (little-endian 0D 00)
+```
+
+To change baud rate: write new counter value to F360+3 (LSB) and F360+4 (MSB),
+then call SIOB_INIT (1487h) with HL=F360h.
+
+To change clock divider: modify the WR4 byte (bits 7-6):
+- 00 = ×1, 01 = ×16, 10 = ×32, 11 = ×64
+
 ### V.24 Configuration Menu
 | Address | Name | Description |
 |---------|------|-------------|
@@ -217,6 +287,24 @@ EAh  — WR5: DTR=1, Tx 8-bit, Tx enable, RTS=1
     ld a, current_value   ; initial value
     call DSP_FIELD        ; 2697h
     ; Returns with CY if ESC pressed
+```
+
+### Change SIO-B baud rate programmatically
+```asm
+    ; Change SIO-B to 4800 baud (ctr2=26, divider x16)
+    ld hl, SIOB_CFG_1      ; F360h — config slot 1
+    ld (hl), 0E1h          ; WR3: 8-bit, auto, Rx enable
+    inc hl
+    ld (hl), 4Ch           ; WR4: x16 clock, 2 stop, no parity
+    inc hl
+    ld (hl), 0EAh          ; WR5: DTR, Tx 8-bit, Tx enable
+    inc hl
+    ld (hl), 26            ; ctr2 LSB (26 for 4800 baud)
+    inc hl
+    ld (hl), 00h           ; ctr2 MSB
+    ld hl, SIOB_CFG_1      ; F360h — point to config
+    call SIOB_INIT         ; 1487h — apply!
+    ; SIO-B now at 4800 baud
 ```
 
 ### Configure V.24 from your program
