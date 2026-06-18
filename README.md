@@ -22,6 +22,7 @@ CPM-R to zmodyfikowany CP/M 2.2 uruchamiany z EPROM (zamiast z dyskietki).
 rom/
 ├── Bosman8-kompatybilny_z_ANG-3001_SAJ.BIN  # plik EPROM
 ├── README.md                                  # ten plik
+├── AGENTS.md                                  # referencja dla agentów AI
 ├── NOTES.md                                   # robocze notatki
 ├── doc/wiki/                                  # formalne znaleziska
 │   ├── memory_map.md

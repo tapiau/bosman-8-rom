@@ -42,23 +42,33 @@ lub z linii poleceń CCP.
 
 ## Zarządzanie plikami (0x6700-0x6A00)
 
+### Formularze input (data-driven)
+Każde pole ma strukturę: `[nagłówek 9B] [etykieta] [spacje]`:
+- Nagłówek definiuje: pozycję (Y,X), typ pola, maks. długość, adres bufora
+- Użytkownik wpisuje tekst w polu spacji
+- Zatwierdzenie: Enter, Anulowanie: ESC
+
 ### Zmiana nazwy (0x6764)
-- "Nowa nazwa :" — nowa nazwa pliku
-- "Podaj nazwę :" — wybór pliku
+- "Nowa nazwa :" + 11 spacji — nowa nazwa pliku
+- "Podaj nazwę :" + 11 spacji — wybór pliku źródłowego
+- Header: `88 64 67 0E 16 1D 16 40 88`
 
 ### Klucz / szyfrowanie (0x6786)
-- "Podaj klucz :" — wpisanie klucza szyfrowania
-- Prawdopodobnie XOR lub proste szyfrowanie plików
-- Klucz może być używany też przez archiwizator
+- "Podaj klucz :" + 12 spacji — wpisanie klucza szyfrowania
+- Header: `88 86 67 0F 16 1E 16 40 88`
+- Proste szyfrowanie plików (prawdopodobnie XOR)
+- Klucz używany też przez archiwizator
 
 ### Kopia pliku (0x67CC)
-- "kopia na plik :" — plik docelowy
-- Kopiowanie z buforowaniem
+- "kopia na plik :" + 12 spacji — plik docelowy
+- Header: `88 CC 67 17 17 25 17 40`
 
 ## Użytkownicy (0x6881)
-- "użytkownik :" (CP/M USER — numery 0-15)
-- Walidacja: 0-9 (CP/M standard)
-- Wywołuje BDOS fn 32 (F_USERNUM)
+- "}ytkownik : $" = "użytkownik : $" (z polskim znakiem)
+- Walidacja: `CP '?'; JP Z,HELP` — '?' pokazuje pomoc
+- `SUB '0'; JR C; CP 0Ah; JR NC` — akceptuje cyfry **0-9**
+- Wywołuje BDOS fn 32 (F_USERNUM) z maską 1Fh → max 32 użytkowników
+- ESC = anuluj, Enter = zatwierdź
 
 ## Opcje dyskowe (0x67F2)
 - "opcja (R, S, U) lub napęd:" — R=odczyt, S=zapis?, U=użytkownik?
