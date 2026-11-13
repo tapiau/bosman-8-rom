@@ -1,0 +1,87 @@
+offset_hex	ASCII_min_8
+0053	CENTRONICS
+0103	Mikrokomputer  
+0113	S BOSMAN 8 - 2311 
+012C	       CPU-Z80A
+013E	Dyskowy system operacyjny  CPM/R v2.5    TPA=60KB  
+0186	RAMDYSK uszkodzony
+019C	ROM uszkodzony
+072A	 Dyskietka zabezpieczona przed zapisem - powt
+0758	rz (P)  rezygnuj (R)  ? 
+0778	d odczytu - powt
+0789	rz (P)  ignoruj (I)  rezygnuj (R)  ? 
+07B7	d zapisu - powt
+07C7	rz (P)  ignoruj (I)  rezygnuj (R)  ? 
+08C6	 czy jest dyskietka - rezygnuj (R)  ? 
+0968	H - ERROR  - mikrosystem (M)  ignoruj (I)  ? 
+09F0	 Drukarka drukuje - przerwij (P)  kontynuuj (K)  ? 
+0A27	 Drukarka
+0A31	niegotowa - wy
+0A41	cz (W)  powt
+0A4E	rz (P)  zmie
+0A5B	 (Z)  ? 
+0B4D	`a@e~c^s}z]n{o[z|l\L
+0B62	` @ ~ ^ } ] { [ | \ 
+0E90	 Bank 1 zaj
+1207	 !"#$%&'
+122F	 !"#$%&'
+132B	ANC-4512
+1406	R1152 - V24
+146C	`]@}~?^<[>}{]~{@>)<('`?2
+1485	`a@e~c^s}z]n{o[z|l\L
+149A	` @ ~ ^ } ] { [ | \ 
+18ED	S  ~: brak nap
+2059	 ~: zapis pliku zabroniony - R/O  ( )
+2081	 ~: zapis zabroniony  ( )
+239E	Program 0100-$+
+23E8	Brak miejsca$
+24AE	#DIR  ERA  TYPE SAVE REN  USER DEBUGD    
+258B	Brak pliku$
+25A2	Wszystkie (T/N) ?$:v
+26C3	Plik istnieje$
+2768	$$$     SUB!
+2785	B:SUBMIT B:AUTOEXEC
+288D	WVNPDFOQKL
+28AB	Atrybuty:
+28D9	S <= <= <= 
+2901	S => => => 
+296F	Drukowanie
+297A	wy|`czona
+299B	>Pliki zaznaczone =$
+2A4B	 B|@dne polecenie - (ESC)$
+2A87	.E}.Wg/Vd/S^/R
+2AF9	437+97+07+-7+*7++7+/7+
+2E1E	>Atrybuty (R,S) :$
+2EC4	>kasowa~ (T) $
+2EF6	>skasowany$
+2F0F	>Kasowa~ wszystkie ? (TAK) :$
+2FC2	> Plik przeczytany$
+2FD7	>, suma = $:
+301D	Plik istnieje$
+303B	z|a nazwa$
+304A	Plik R/O$
+30E8	ju} istnieje - $
+311F	>Brak miejsca$
+317B	>random$
+3187	> skopiowany$
+31AE	>istnieje R/O$
+322E	>Pisz znaki na drukark@    znak (ctrl)Z - koniec polecenia
+32A7	>Czy zwolni~ bank 1$
+33F5	Plik nie znaleziony
+3501	 Czy tekst zawiera$
+352B	 Czy drukarka ma$
+3553	 Czy wysy|a~ {smy bit podczas drukowania $
+3590	 Czy wysy|a~ znak TAB $
+35C0	> litery  ` @ ^ ~ ] } { [ | \ $
+38D7	>##Nap@d: $
+38E6	>RAMDYSK: $
+3911	Plik{w: $
+3921	Pozosta|o: $*
+3C4B	>Nowa nazwa :$
+3C5D	>Podaj klucz :$
+3D1A	>Nap@d: $
+3D46	>}ytkownik : $
+3D9F	z|y numer u}ytkownika$7
+3DBC	> nap@du$7
+3DF8	> (T/N) ? 
+3E1B	*koniec*$

@@ -1,0 +1,84 @@
+offset_hex	ASCII_min_8
+0053	CENTRONICS
+00F3	Mikrokomputer  
+010D	T        v Z80/1
+0120	Dyskowy system operacyjny  CPM/R v2.5 ,   TPA=60kB.
+0158	RAMDYSK uszkodzony
+016E	ROM uszkodzony
+06F3	 Dyskietka zabezpieczona przed zapisem - powt
+0721	rz (P)  rezygnuj (R)  ? 
+0741	d odczytu - powt
+0752	rz (P)  ignoruj (I)  rezygnuj (R)  ? 
+0780	d zapisu - powt
+0790	rz (P)  ignoruj (I)  rezygnuj (R)  ? 
+088F	 czy jest dyskietka - rezygnuj (R)  ? 
+0931	H - ERROR  - mikrosystem (M)  ignoruj (I)  ? 
+09B9	 Drukarka drukuje - przerwij (P)  kontynuuj (K)  ? 
+09F0	 Drukarka
+09FA	niegotowa - wy
+0A0A	cz (W)  powt
+0A17	rz (P)  zmie
+0A24	 (Z)  ? 
+0B16	`a@e~c^s}z]n{o[z|l\L
+0B2B	` @ ~ ^ } ] { [ | \ 
+0DFA	 Bank 1 zaj
+1207	 !"#$%&'
+122F	 !"#$%&'
+132B	ANC-4512
+1406	R1152 - V24
+146C	`]@}~?^<[>}{]~{@>)<('`?2
+1485	`a@e~c^s}z]n{o[z|l\L
+149A	` @ ~ ^ } ] { [ | \ 
+18ED	S  ~: brak nap
+2059	 ~: zapis pliku zabroniony - R/O  ( )
+2081	 ~: zapis zabroniony  ( )
+23AE	Program 0100-$+
+23F8	Brak miejsca$
+24BE	#DIR  ERA  TYPE SAVE REN  USER DEBUGD    
+259B	Brak pliku$
+25B2	Wszystkie (T/N) ?$
+26C2	Plik istnieje$
+2764	$$$     SUB!
+2781	B:SUBMIT B:AUTOEXEC
+2885	WVNPDFOQKL
+28A3	Atrybuty:
+28D1	S <= <= <= 
+28F9	S => => => 
+2967	Drukowanie
+2972	wy|`czona
+2993	>Pliki zaznaczone =$
+2A43	 B|@dne polecenie - (ESC)$
+2A7F	.Eu.W_/V\/SV/R
+2AF1	43/+9/+0/+-/+*/++/+//+
+2E16	>Atrybuty (R,S) :$
+2EBC	>kasowa~ (T) $
+2EEE	>skasowany$
+2F07	>Kasowa~ wszystkie ? (TAK) :$
+2FBA	> Plik przeczytany$
+2FCF	>, suma = $:
+3015	Plik istnieje$
+3033	z|a nazwa$
+3042	Plik R/O$
+30E0	ju} istnieje - $
+3117	>Brak miejsca$
+3173	>random$
+317F	> skopiowany$
+31A6	>istnieje R/O$
+3226	>Pisz znaki na drukark@    znak (ctrl)Z - koniec polecenia
+329F	>Czy zwolni~ bank 1 (T/N) ? $
+33F0	Plik nie znaleziony
+34F9	 Czy tekst zawiera litery  ` @ ^ ~ ] } { [ | \  (T/N) ? $
+3549	 Czy drukarka ma w zestawie znakow litery ` @ ^ ~ ] } { [ | \  (T/N) ? $
+35A8	 Czy zerowa~ {smy bit podczas drukowania  (T/N) ? 
+38EE	>##Nap@d: $
+38FD	>RAMDYSK: $
+3928	Plik{w: $
+3938	Pozosta|o: $*
+3C62	>Nowa nazwa :$
+3C74	>Podaj klucz :$
+3D2F	>Nap@d: $
+3D5B	>}ytkownik : $
+3DB4	z|y numer u}ytkownika$7
+3DD1	> nap@du$7
+3E21	*koniec*$
+3E7F	`a@e~c^s}z]n{o[z|l\L
