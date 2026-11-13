@@ -1,0 +1,221 @@
+src/vectors.asm:
+     1                          ; =============================================================================
+     2                          ; vectors.asm — Page Zero (0x0000-0x00FF)
+     3                          ; =============================================================================
+     4                          ; Główna tablica skoków CPM-R i parametry systemowe.
+     5                          ;
+     6                          ; CPM-R różni się od standardowego CP/M 2.2:
+     7                          ;  - Bajty 0x0000-0x0001 to sygnatura ROM (25 00), nie JP BOOT
+     8                          ;  - Tablica skoków zaczyna się od 0x0002 (offset +2 vs CP/M)
+     9                          ;  - Ma 3 dodatkowe wektory (vec8–vec10) w porównaniu do CP/M
+    10                          ;  - NMI (0x0066) jest obsłużone (standardowe CP/M ignoruje)
+    11                          ;  - Zawiera 3 tablice konfiguracji wyświetlacza (od 0x0077)
+    12                          ;
+    13                          ; Legenda adresów:
+    14                          ;   Adresy w ROM (0x0000-0x7FFF) — kod wykonywany bezpośrednio z EPROM
+    15                          ;   Adresy w RAM (0xF000-0xFFFF) — kod skopiowany z ROM podczas bootu
+    16                          ; =============================================================================
+    17                          
+    18                          	org	00000h
+    19                          
+    20                          ; -----------------------------------------------------------------------------
+    21                          ; Sygnatura ROM (2 bajty)
+    22                          ; -----------------------------------------------------------------------------
+    23                          ; Wykonywane jako DEC H / NOP przy restarcie — nieszkodliwe.
+    24                          ; Przed przełączeniem na RAM, procedura 0x044F nadpisze te bajty przez C3 (JP).
+    25  0000  25                	dec h			; 0000  25     ROM signature byte 1
+    26  0001  00                	nop			; 0001  00     ROM signature byte 2
+    27                          
+    28                          ; -----------------------------------------------------------------------------
+    29                          ; Główna tablica skoków (10 wektorów × 3 bajty)
+    30                          ; -----------------------------------------------------------------------------
+    31                          ; Standard CP/M 2.2 ma 7 wektorów (warm boot, BDOS, RST1–RST5).
+    32                          ; CPM-R dodaje 3 wektory: 0017, 001A, 001D.
+    33                          
+    34                          ; --- Wektor 0: Warm Boot ---
+    35                          ; Odpowiednik CP/M JP BOOT na 0x0000.
+    36                          ; Inicjalizuje sprzęt, testuje RAM, kopiuje ROM→RAM, uruchamia CCP.
+    37                          WARM_BOOT:
+    38  0002  c30000            	jp BOOT			; 0002  C3 55 02
+    39                          
+    40                          ; --- Wektor 1: BDOS Entry (CP/M: 0x0005) ---
+    41                          ; Główny punkt wejścia do BDOS. Numer funkcji w rejestrze C.
+    42                          ; Standardowa lokalizacja w CP/M. CPM-R zachowuje ten adres!
+    43                          BDOS_ENTRY:
+    44  0005  c30000            	jp BDOS			; 0005  C3 38 30
+    45                          
+    46                          ; --- Wektor 2: RST 1 (0x0008) — rozszerzone wyjście znakowe ---
+    47                          ; Używane do formatowanego wyjścia z obsługą kursorów, atrybutów.
+    48                          ; W standardowym CP/M to zwykle prosty skok do BIOS console output.
+    49                          RST1_EXT:
+    50  0008  c30000            	jp EXT_OUT		; 0008  C3 B3 13
+    51                          
+    52                          ; --- Wektor 3: RST 2 (0x000B) — przełącznik ROM→RAM ---
+    53                          ; Aktywuje tryb pracy z RAM: nadpisuje wektory 0x0000–0x003A
+    54                          ; by wskazywały na kopie w górnym RAM (Fxxx).
+    55                          RST2_SWITCH:
+    56  000b  c30000            	jp SWITCH_TO_RAM	; 000B  C3 4F 04
+    57                          
+    58                          ; --- Wektor 4: RST 3 (0x000E) — procedura pomocnicza ---
+    59                          RST3_HELPER:
+    60  000e  c38714            	jp $1487		; 000E  C3 87 14
+    61                          
+    62                          ; --- Wektor 5: RST 4 (0x0011) → RAM ---
+    63                          ; Wskazuje na kod w RAM (kopię skopiowaną podczas bootu).
+    64                          RST4_RAM:
+    65  0011  c358f4            	jp $F458		; 0011  C3 58 F4
+    66                          
+    67                          ; --- Wektor 6: RST 5 (0x0014) → RAM ---
+    68                          RST5_RAM:
+    69  0014  c35df4            	jp $F45D		; 0014  C3 5D F4
+    70                          
+    71                          ; --- Wektor 7 (0x0017): BIOS Console I/O — ROZSZERZENIE CPM-R ---
+    72                          ; Główna procedura obsługi konsoli (znakowe we/wy, escape sequence).
+    73                          ; W standardowym CP/M nie ma odpowiednika — dostęp przez BDOS lub BIOS.
+    74                          BIOS_CONSOLE:
+    75  0017  c30000            	jp CONSOLE		; 0017  C3 80 0E
+    76                          
+    77                          ; --- Wektor 8 (0x001A): Procedura pomocnicza — ROZSZERZENIE CPM-R ---
+    78                          ; Sprawdza bit 7 rejestru H i wykonuje operację blokową I/O.
+    79                          SERVICE_01A:
+    80  001a  c3f400            	jp BLOCK_IO		; 001A  C3 F1 00
+    81                          
+    82                          ; --- Wektor 9 (0x001D): Display Attribute Handler — ROZSZERZENIE CPM-R ---
+    83                          ; Obsługa atrybutów wyświetlacza DZM-180 (porty 0x88xx).
+    84                          ; Bitmapa w rejestrze C wybiera konkretną operację.
+    85                          DISPLAY_ATTR:
+    86  001d  c30000            	jp DSP_ATTR		; 001D  C3 6C 26
+    87                          
+    88                          ; -----------------------------------------------------------------------------
+    89                          ; Dane systemowe (0x0020–0x002F)
+    90                          ; -----------------------------------------------------------------------------
+    91                          ; Wygląda na numer seryjny / datę / wersję sprzętu.
+    92                          ; 44 19 = może być datą (19.44? numer tygodnia/roku?)
+    93                          ; 91 06 = ?
+    94                          ; 20 00 = ?
+    95  0020  4419910620000000  	DEFB 044h, 019h, 091h, 006h, 020h, 000h, 000h, 000h
+    96  0028  0000000000000000  	DEFB 000h, 000h, 000h, 000h, 000h, 000h, 000h, 000h
+    97                          
+    98                          ; -----------------------------------------------------------------------------
+    99                          ; RST 6 (0x0030) → RAM
+   100                          ; -----------------------------------------------------------------------------
+   101                          ; W CP/M 2.2 RST 6 nie jest używane przez system.
+   102                          ; CPM-R kieruje je do RAM — prawdopodobnie do debuggera.
+   103  0030  c3                	DEFB 0C3h			; JP opcode (przywracane przez switch_to_ram)
+   104                          RST6_RAM:
+   105  0031  c375f2            	jp $F275		; 0030  C3 75 F2
+   106  0034  0000000000        	DEFS 5, 000h			; 0033–0037: padding NOPs
+   107                          
+   108                          ; -----------------------------------------------------------------------------
+   109                          ; RST 7 (0x0038) → RAM
+   110                          ; -----------------------------------------------------------------------------
+   111                          ; W CP/M 2.2 RST 7 to standardowy debugger (DBG) lub przerwanie.
+   112                          ; CPM-R kieruje je do RAM.
+   113                          RST7_RAM:
+   114  0039  c372f2            	jp $F272		; 0038  C3 72 F2
+   115                          
+   116                          ; -----------------------------------------------------------------------------
+   117                          ; Stringi identyfikacyjne systemu (0x003B–0x005D)
+   118                          ; -----------------------------------------------------------------------------
+   119                          ; Format: ciągi znaków ASCII zakończone 0x80 (bit 7 = 1 na ostatnim znaku)
+   120                          ; lub 0x00 (NUL) dla krótkich pól.
+   121                          SYS_ID:
+   122  003c  4300              	DEFB 'C', 000h		; 003B  "C"
+   123  003e  4b00              	DEFB 'K', 000h		; 003D  "K"
+   124  0040  06f5              	DEFB 006h, 0F5h		; 003F  (dane konfiguracyjne?)
+   125  0042  5300              	DEFB 'S', 000h		; 0041  "S"
+   126  0044  445a4d2d313830    	DEFB 'D','Z','M','-','1','8','0'	; 0043  "DZM-180"
+   127  004b  80                	DEFB 080h				; terminator (bit 7 set)
+   128  004c  69732e20563234    	DEFB 'i','s','.',' ','V','2','4'	; 004B  "is. V24"
+   129  0053  80                	DEFB 080h				; terminator
+   130  0054  43454e54524f4e49  	DEFB 'C','E','N','T','R','O','N','I','C','S' ; 0053 "CENTRONICS"
+              4353              
+   131  005e  80                	DEFB 080h				; 005D  terminator
+   132                          
+   133                          ; -----------------------------------------------------------------------------
+   134                          ; Hardware I/O — blokowe OUT (0x005E–0x0064)
+   135                          ; -----------------------------------------------------------------------------
+   136                          ; Sekwencja: wybór urządzenia przez port 0x01, transfer blokowy,
+   137                          ; zwolnienie urządzenia przez port 0x00.
+   138                          ; Używane przez procedurę BLOCK_IO (0x00F1).
+   139                          HW_BLOCK_OUT:
+   140  005f  d301              	out (001h),a		; 005E  D3 01   select device
+   141  0061  edb0              	ldir			; 0060  ED B0   block transfer (HL→DE, BC bytes)
+   142  0063  d300              	out (000h),a		; 0062  D3 00   deselect device
+   143  0065  c9                	ret			; 0064  C9
+   144                          
+   145                          ; -----------------------------------------------------------------------------
+   146                          ; NMI Handler (0x0066)
+   147                          ; -----------------------------------------------------------------------------
+   148                          ; Z80 Non-Maskable Interrupt. Standardowe CP/M 2.2 nie używa NMI.
+   149                          ; CPM-R przekierowuje do RAM (0xF341) — możliwe wykorzystanie
+   150                          ; przez sprzętowe przerwanie (klawisz STOP, watchdog, itp.)
+   151  0066  00                	DEFB 000h			; 0065  00 padding
+   152                          NMI_HANDLER:
+   153  0067  c341f3            	jp $F341		; 0066  C3 41 F3
+   154                          
+   155                          ; -----------------------------------------------------------------------------
+   156                          ; Obszar danych 0x0069–0x0076 — parametry dysku?
+   157                          ; -----------------------------------------------------------------------------
+   158                          ; Wygląda na tabelę parametrów (rozmiary sektorów? liczba ścieżek?)
+   159  006a  bf2dd32d79008d00  	DEFB 0BFh, 02Dh, 0D3h, 02Dh, 079h, 000h, 08Dh, 000h
+   160  0072  a100b500c900      	DEFB 0A1h, 000h, 0B5h, 000h, 0C9h, 000h
+   161                          
+   162                          ; -----------------------------------------------------------------------------
+   163                          ; Tablice konfiguracji wyświetlacza (0x0077–0x00F0)
+   164                          ; -----------------------------------------------------------------------------
+   165                          ; Trzy warianty konfiguracji, każdy po 40 (0x28) bajtów.
+   166                          ; Wybierane podczas bootu na podstawie stanu portu 0x98.
+   167                          ; Kopiowane do RAM (0xF2BF) przez warm boot.
+   168                          
+   169                          ; Nagłówek tablicy
+   170                          DSP_CFG_HEADER:
+   171  0078  dd002800          	DEFB 0DDh, 000h, 028h, 000h	; 0DDh=marker, 0028h=rozmiar tabeli (40B)
+   172                          
+   173                          ; --- Tablica 1 (0x0079): tryb "!!@" (bit 3 portu 0x98) ---
+   174                          DSP_CFG_MODE_A:			; "!!@"
+   175  007c  2800040f01c7007f  	DEFB 028h,000h,004h,00Fh,001h,0C7h,000h,07Fh
+   176  0084  00c0002000000003  	DEFB 000h,0C0h,000h,020h,000h,000h,000h,003h
+   177  008c  07212140          	DEFB 007h,021h,021h,040h
+   178  0090  2800040f01c7007f  	DEFB 028h,000h,004h,00Fh,001h,0C7h,000h,07Fh
+   179  0098  00c0002000000003  	DEFB 000h,0C0h,000h,020h,000h,000h,000h,003h
+   180  00a0  07212140          	DEFB 007h,021h,021h,040h
+   181                          
+   182                          ; --- Tablica 2 (0x00A1): tryb "11`" (bit 5 portu 0x98) ---
+   183                          DSP_CFG_MODE_B:			; "11`"
+   184  00a4  2800040f008f01bf  	DEFB 028h,000h,004h,00Fh,000h,08Fh,001h,0BFh
+   185  00ac  00e0003000000003  	DEFB 000h,0E0h,000h,030h,000h,000h,000h,003h
+   186  00b4  07313160          	DEFB 007h,031h,031h,060h
+   187  00b8  2800040f008f01bf  	DEFB 028h,000h,004h,00Fh,000h,08Fh,001h,0BFh
+   188  00c0  00e0003000000003  	DEFB 000h,0E0h,000h,030h,000h,000h,000h,003h
+   189  00c8  07313160          	DEFB 007h,031h,031h,060h
+   190                          
+   191                          ; --- Tablica 3 (0x00C9): tryb domyślny "11c" ---
+   192                          DSP_CFG_MODE_DEFAULT:		; "11c" (boot bez klawiszy)
+   193  00cc  2800040f008f01bf  	DEFB 028h,000h,004h,00Fh,000h,08Fh,001h,0BFh
+   194  00d4  00e0003000000003  	DEFB 000h,0E0h,000h,030h,000h,000h,000h,003h
+   195  00dc  07313163          	DEFB 007h,031h,031h,063h
+   196  00e0  2800030700c7003f  	DEFB 028h,000h,003h,007h,000h,0C7h,000h,03Fh
+   197  00e8  00c0001000000003  	DEFB 000h,0C0h,000h,010h,000h,000h,000h,003h
+   198  00f0  07111103          	DEFB 007h,011h,011h,003h
+   199                          
+   200                          ; -----------------------------------------------------------------------------
+   201                          ; BLOCK_IO (0x00F1) — Procedura pomocnicza wektora 0x001A
+   202                          ; -----------------------------------------------------------------------------
+   203                          ; Sprawdza bit 7 rejestru H:
+   204                          ;   bit 7 = 0 → skok do HW_BLOCK_OUT+2 (LDIR → OUT 00h → RET)
+   205                          ;   bit 7 = 1 → reset bitu 7, skok do HW_BLOCK_OUT
+   206                          BLOCK_IO:
+   207  00f4  cb7c              	bit 7,h			; 00F1  CB 7C   check direction flag
+   208  00f6  ca6100            	jp z,HW_BLOCK_OUT+2	; 00F3  CA 60 00 skip device select
+   209  00f9  cbbc              	res 7,h			; 00F6  CB BC   clear direction flag
+   210  00fb  c35f00            	jp HW_BLOCK_OUT		; 00F8  C3 5E 00 full block out sequence
+   211                          
+   212  00fe  000000            	DEFS 3, 000h			; 00FB–00FD padding
+   213  0101  00                	DEFB 000h			; 00FE
+   214  0102  00                	DEFB 000h			; 00FF
+   215                          
+   216                          ; =============================================================================
+   217                          ; Koniec Page Zero (0x0100 — początek drugiej tablicy skoków)
+   218                          ; =============================================================================
+   219                          
